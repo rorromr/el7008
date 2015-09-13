@@ -1,0 +1,7 @@
+*.pdf
+*.tar.gz
+*.zip
+*.rar
+
+**/bin/
+**/build/
