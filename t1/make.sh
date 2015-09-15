@@ -11,5 +11,7 @@ else
   cd build
   cmake ..
   make
+  cd ../bin
+  ./conv
 fi
 
