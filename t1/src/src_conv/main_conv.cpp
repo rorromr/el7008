@@ -4,8 +4,15 @@
 #include <highgui.h>
 #include <stdio.h>
 
+#define CONV_TEST
+
 using namespace std;
 using namespace cv;
+
+void printMat(const Mat &mat, const string &name = "M")
+{
+    cout << name << " = " << endl << " "  << mat << endl << endl;
+}
 
 void convolucion(Mat input, Mat mask, Mat output)
 {
@@ -31,7 +38,11 @@ void convolucion(Mat input, Mat mask, Mat output)
                          offset_c>=0 && offset_c < input.cols) ? input.at<float>(r,c) : 0;
                 }
             }
-            
+            #ifdef CONV_TEST
+            stringstream text;
+            text << "Pad for (" << r << "," << c << ")";
+            printMat(padding, text.str());
+            #endif
             /*
             cout << padding.dot(mask) << endl;
             */
@@ -39,6 +50,8 @@ void convolucion(Mat input, Mat mask, Mat output)
         }
     }
 }
+
+
 
 int main(void)
 {
@@ -53,22 +66,26 @@ int main(void)
     Mat original;
     cvtColor(originalRGB, original, CV_BGR2GRAY);
     
-    /*
+#ifdef CONV_TEST
+    cout << "Filtro de prueba" << endl;
     float input_test[9] = {0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0};
     Mat input = Mat(3, 3, CV_32FC1, input_test);
-    */
-
+    printMat(input, "Input");
+#else
     Mat input;
     original.convertTo(input, CV_32FC1);
-
+#endif
+    float maskval[9] = {1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     //float maskval[9] = {0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11};
-    float maskval[9] = {0.33, 0.33, 0.33, 0, 0, 0, -0.33, -0.33, -0.33};  // horizontal
+    //float maskval[9] = {0.33, 0.33, 0.33, 0, 0, 0, -0.33, -0.33, -0.33};  // horizontal
     Mat mask = Mat(3, 3, CV_32FC1, maskval);
-
+    printMat(mask, "Mask");
     Mat output = Mat::zeros(input.rows, input.cols, CV_32FC1);  
     convolucion(input, mask, output);
     output = abs(output);
-
+#ifdef CONV_TEST
+    printMat(output, "Out");
+#endif
     Mat last;
     output.convertTo(last, CV_8UC1);
 
