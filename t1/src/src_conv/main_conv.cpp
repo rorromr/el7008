@@ -15,15 +15,15 @@ void printMat(const Mat &mat, const string &name = "M")
 Mat getGaussKernel(int size, float sigma)
 {
     cv::Mat kernel(size,size,CV_32FC1);
-    float halfSize = size / 2.0; 
+    float center = size / 2.0; 
     sigma = 0.3*((size-1)*0.5 - 1) + 0.8;
     sigma = 1;
     for (int i=0; i<kernel.rows;++i)
     {
         for (int j=0; j<kernel.cols;++j)
         { 
-            float x = j - halfSize;
-            float y = i - halfSize;
+            float x = j - center;
+            float y = i - center;
             kernel.at<float>(j,i) = 1.0/sqrt(2*M_PI*sigma*sigma)*exp(-(x*x + y*y)/(2.0*sigma*sigma));
         }
     }
@@ -33,10 +33,10 @@ Mat getGaussKernel(int size, float sigma)
 Mat getGaussLinKernel(int size, float sigma)
 {
     cv::Mat kernel(size,1,CV_32FC1);
-    float halfSize = size / 2.0;
+    float center = size / 2.0;
     for (int i=0; i<size;++i)
     {
-        float x = i - halfSize;
+        float x = i - center;
         kernel.at<float>(i,0) = 1.0/sqrt(2*M_PI*sigma)*exp(-(x*x)/(2.0*sigma));
     }
     return kernel;
