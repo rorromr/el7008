@@ -12,6 +12,5 @@ else
   cmake ..
   make
   cd ../bin
-  ./median
 fi
 

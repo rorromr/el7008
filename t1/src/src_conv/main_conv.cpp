@@ -4,8 +4,6 @@
 #include <highgui.h>
 #include <stdio.h>
 
-//#define CONV_TEST
-
 using namespace std;
 using namespace cv;
 
@@ -14,7 +12,37 @@ void printMat(const Mat &mat, const string &name = "M")
     cout << name << " = " << endl << " "  << mat << endl << endl;
 }
 
-void convolucion(Mat input, Mat mask, Mat output)
+Mat getGaussKernel(int size, float sigma)
+{
+    cv::Mat kernel(size,size,CV_32FC1);
+    float halfSize = size / 2.0; 
+    sigma = 0.3*((size-1)*0.5 - 1) + 0.8;
+    sigma = 1;
+    for (int i=0; i<kernel.rows;++i)
+    {
+        for (int j=0; j<kernel.cols;++j)
+        { 
+            float x = j - halfSize;
+            float y = i - halfSize;
+            kernel.at<float>(j,i) = 1.0/sqrt(2*M_PI*sigma*sigma)*exp(-(x*x + y*y)/(2.0*sigma*sigma));
+        }
+    }
+    return kernel;
+}
+
+Mat getGaussLinKernel(int size, float sigma)
+{
+    cv::Mat kernel(size,1,CV_32FC1);
+    float halfSize = size / 2.0;
+    for (int i=0; i<size;++i)
+    {
+        float x = i - halfSize;
+        kernel.at<float>(i,0) = 1.0/sqrt(2*M_PI*sigma)*exp(-(x*x)/(2.0*sigma));
+    }
+    return kernel;
+}
+
+void convolucion(const Mat &input, const Mat &mask, Mat &output)
 {
     // Zero-padding matrix
     Mat padding = Mat::zeros(mask.rows, mask.cols, CV_32FC1);
@@ -44,11 +72,29 @@ void convolucion(Mat input, Mat mask, Mat output)
     }
 }
 
-
-
-int main(void)
+void printHelp(const char* name)
 {
-    Mat originalRGB = imread("cuadrado.png"); // Read image
+    cout << "Uso: "<< name << " tipo_filtro imagen.png" << endl;
+    cout << "tipo_filtro " << endl;
+    cout << "\ta - Pasa bajos recto" <<endl;
+    cout << "\tb - Pasa bajos unidimensional por filas y columnas" <<endl;
+    cout << "\tc - Gaussiano" <<endl;
+    cout << "\td - Gaussiano unidimensional por filas y columnas" <<endl;
+    cout << "\te - Prewitt vertical" <<endl;
+    cout << "\tf - Prewitt horizontal" <<endl;
+    cout << "Ejemplo Prewitt horizontal: $ "<< name <<" f cuadrado.png" <<endl;
+}
+
+
+int main(int argc, char** argv)
+{
+    if( argc != 3)
+    {
+        printHelp(argv[0]);
+        return 1;
+    }
+
+    Mat originalRGB = imread(argv[2]); // Read image
 
     if(originalRGB.empty()) // Image not found
     {
@@ -62,11 +108,48 @@ int main(void)
     Mat input;
     original.convertTo(input, CV_32FC1);
 
-    //float maskval[9] = {0.33, 0.33, 0.33, 0, 0, 0, -0.33, -0.33, -0.33};  // horizontal
-    Mat mask(3, 3, CV_32FC1,  Scalar(0.11));
-    printMat(mask, "Mask");
+    Mat mask;
+    char filtro = argv[1][0];
+    switch (filtro)
+    {
+        case 'a':
+            mask = Mat(3, 3, CV_32FC1,  Scalar(1.0/9));
+            break;
+        case 'b':
+            mask = Mat(1, 3, CV_32FC1,  Scalar(1.0/3));
+            break;
+        case 'c':
+            mask = getGaussKernel(5, 1.0);
+            break;
+        case 'd':
+            mask = getGaussLinKernel(5, 1.0);
+            break;
+        case 'e':
+            mask = (Mat_<float>(3,3) << -1, 0, 1, -1, 0, 1, -1, 0, 1)*(1.0/9);
+            break;
+        case 'f':
+            mask = (Mat_<float>(3,3) << -1, -1, -1, 0, 0, 0, 1, 1, 1)*(1.0/9);
+            break;
+        default:
+            cout << "\033[1;31m" << "Filtro seleccionado no existe" << "\033[0m" << endl;
+            printHelp(argv[0]);
+            return 1;
+            break;
+    }
+
+
+    //printMat(mask, "Mask");
     Mat output = Mat::zeros(input.rows, input.cols, CV_32FC1);  
     convolucion(input, mask, output);
+    
+    // Casos filtros lineales
+    if (filtro == 'b' || filtro == 'd')
+    {
+        Mat aux(output);
+        transpose(mask, mask);
+        convolucion(aux, mask, output);
+    }
+
     output = abs(output);
     Mat last;
     output.convertTo(last, CV_8UC1);
