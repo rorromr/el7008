@@ -40,9 +40,15 @@ void equalization(const Mat &input, Mat &output)
     }
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-    Mat originalRGB = imread("mala_ilum.jpg"); //Leer imagen
+    if( argc != 2)
+    {
+        cout << "Uso: "<< argv[0] << " imagen.png" << endl;
+        return 1;
+    }
+
+    Mat originalRGB = imread(argv[1]); //Leer imagen
 
     if(originalRGB.empty()) // No encontro la imagen
     {

@@ -11,14 +11,11 @@ void mediana(const Mat &input, Mat &output, unsigned int window_size = 3)
 {
     // Central position
     const int mask_anchor = window_size/2;
-
+    std::vector<float> elements(window_size*window_size, 0.0);
     for (int r=0; r<input.rows ; ++r)
     {
         for (int c=0 ; c<input.cols; ++c)
-        {
-            // Create vector
-            std::vector<float> elements;
-            elements.reserve(window_size*window_size);
+        {            
             // Add zero and matrix elements to padding matrix
             for (int pad_r=0; pad_r<window_size; ++pad_r)
             {
@@ -27,9 +24,9 @@ void mediana(const Mat &input, Mat &output, unsigned int window_size = 3)
                     int offset_r = r - mask_anchor + pad_r;
                     int offset_c = c - mask_anchor + pad_c;
                     
-                    elements.push_back(
+                    elements[pad_r+window_size*pad_c] =
                         (offset_r>=0 && offset_r < input.rows &&
-                         offset_c>=0 && offset_c < input.cols) ? input.at<float>(offset_r,offset_c) : 127);
+                         offset_c>=0 && offset_c < input.cols) ? input.at<float>(offset_r,offset_c) : 127;
                 }
             }
             // Sort elements
@@ -40,9 +37,15 @@ void mediana(const Mat &input, Mat &output, unsigned int window_size = 3)
     }
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
-    Mat originalRGB = imread("saltpepper.jpg"); //Leer imagen
+    if( argc != 2)
+    {
+        cout << "Uso: "<< argv[0] << " imagen.png" << endl;
+        return 1;
+    }
+
+    Mat originalRGB = imread(argv[1]); //Leer imagen
 
     if(originalRGB.empty()) // No encontro la imagen
     {
@@ -57,7 +60,7 @@ int main(void)
     original.convertTo(input, CV_32FC1);
     
     Mat output = Mat::zeros(input.rows, input.cols, CV_32FC1);  
-    mediana(input, output, 5);
+    mediana(input, output, 3);
 
     Mat last;
     output.convertTo(last, CV_8UC1);
