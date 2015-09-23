@@ -2,12 +2,13 @@
 #include <iostream>
 #include <cv.h>
 #include <highgui.h>
-#include <algorithm>
+#include <string.h>
+#include <unistd.h>
 
 using namespace std;
 using namespace cv;
 
-void mediana(const Mat &input, Mat &output, unsigned int window_size = 3)
+void median(const Mat &input, Mat &output, unsigned int window_size = 3)
 {
     // Central position
     const int mask_anchor = window_size/2;
@@ -41,13 +42,14 @@ int main(int argc, char** argv)
 {
     if( argc != 2)
     {
-        cout << "Uso: "<< argv[0] << " imagen.png" << endl;
+        cout << "Uso: "<< argv[0] << " imagen.jpg" << endl;
         return 1;
     }
 
-    Mat originalRGB = imread(argv[1]); //Leer imagen
+    string image_name(argv[1]);
+    Mat originalRGB = imread(image_name); // Read img
 
-    if(originalRGB.empty()) // No encontro la imagen
+    if(originalRGB.empty()) // Not found
     {
         cout << "Imagen no encontrada" << endl;
         return 1;
@@ -60,14 +62,18 @@ int main(int argc, char** argv)
     original.convertTo(input, CV_32FC1);
     
     Mat output = Mat::zeros(input.rows, input.cols, CV_32FC1);  
-    mediana(input, output, 3);
+    median(input, output, 3);
 
     Mat last;
     output.convertTo(last, CV_8UC1);
 
-    imshow("median", last);   // Mostrar imagen
-    imwrite("median.jpg", last); // Grabar imagen
-    cvWaitKey(0); // Pausa, permite procesamiento interno de OpenCV
+    imshow("Filter: " + image_name, last);   // Show
+    
+    string filtered_name=image_name.substr(0,image_name.find_last_of('.'))+"_filtered.jpg";
+    imwrite(filtered_name, last); // Save
+    
+    waitKey(1000);
 
-    return 0; // Sale del programa normalmente
+
+    return 0;
 }

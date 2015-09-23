@@ -1,0 +1,38 @@
+#!/bin/sh
+
+bold=$(tput bold)
+reset=$(tput sgr0)
+
+if [ "$1" = "clean" ]; then
+  echo "${bold}Cleaning...${reset}"
+  rm -r build bin
+  find ./db/ -name "*_eq*" -type f -delete
+  find ./db/ -name "*_filtered*" -type f -delete
+
+elif [ "$1" = "conv" ]; then
+    for file in ./db/conv/*
+    do
+        ./bin/conv c "$file"
+    done
+
+elif [ "$1" = "median" ]; then
+    for file in ./db/sp/*
+    do
+        ./bin/median "$file"
+    done
+
+elif [ "$1" = "histeq" ]; then
+    for file in ./db/histeq/*
+    do
+        ./bin/histeq "$file"
+    done
+
+elif [ "$1" = "make" ]; then
+  mkdir -p build
+  cd build
+  cmake ..
+  make
+else
+  echo "Uso: $./t1 clean|conv|median|histeq"
+fi
+

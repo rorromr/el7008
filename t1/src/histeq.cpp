@@ -48,7 +48,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    Mat originalRGB = imread(argv[1]); //Leer imagen
+    string image_name(argv[1]);
+    Mat originalRGB = imread(image_name); //Leer imagen
 
     if(originalRGB.empty()) // No encontro la imagen
     {
@@ -62,9 +63,12 @@ int main(int argc, char** argv)
     Mat output = Mat::zeros(original.rows, original.cols, CV_8UC1);
     equalization(original, output);
 
-    imshow("ecualizado", output);   // Mostrar imagen
-    imwrite("ecualizado.jpg", output); // Grabar imagen
-    cvWaitKey(0); // Pausa, permite procesamiento interno de OpenCV
+    imshow("Filter: " + image_name, output);   // Show
+    
+    string filtered_name=image_name.substr(0,image_name.find_last_of('.'))+"_eq.jpg";
+    imwrite(filtered_name, output); // Save
+    
+    waitKey(1000);
 
     return 0; // Sale del programa normalmente
 }

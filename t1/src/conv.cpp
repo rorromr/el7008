@@ -93,8 +93,8 @@ int main(int argc, char** argv)
         printHelp(argv[0]);
         return 1;
     }
-
-    Mat originalRGB = imread(argv[2]); // Read image
+    string image_name(argv[2]);
+    Mat originalRGB = imread(image_name); // Read image
 
     if(originalRGB.empty()) // Image not found
     {
@@ -154,9 +154,12 @@ int main(int argc, char** argv)
     Mat last;
     output.convertTo(last, CV_8UC1);
 
-    imshow("filtered", last);   // Mostrar imagen
-    imwrite("filtered.jpg", last); // Grabar imagen
-    cvWaitKey(0); // Pausa, permite procesamiento interno de OpenCV
+    imshow("Filter: " + image_name, last);   // Show
+    
+    string filtered_name=image_name.substr(0,image_name.find_last_of('.'))+"_filtered.jpg";
+    imwrite(filtered_name, last); // Save
+    
+    waitKey(1000);
 
     return 0; // Sale del programa normalmente
 }
