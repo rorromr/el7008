@@ -15,16 +15,14 @@ void printMat(const Mat &mat, const string &name = "M")
 Mat getGaussKernel(int size, float sigma)
 {
     cv::Mat kernel(size,size,CV_32FC1);
-    float center = size / 2.0; 
-    sigma = 0.3*((size-1)*0.5 - 1) + 0.8;
-    sigma = 1;
+    float center = size / 2.0;
     for (int i=0; i<kernel.rows;++i)
     {
         for (int j=0; j<kernel.cols;++j)
         { 
             float x = j - center;
             float y = i - center;
-            kernel.at<float>(j,i) = 1.0/sqrt(2*M_PI*sigma*sigma)*exp(-(x*x + y*y)/(2.0*sigma*sigma));
+            kernel.at<float>(j,i) = 1.0/(2*M_PI*sqrt(sigma*sigma))*exp(-(x*x + y*y)/(2.0*sigma*sigma));
         }
     }
     return kernel;
@@ -37,7 +35,7 @@ Mat getGaussLinKernel(int size, float sigma)
     for (int i=0; i<size;++i)
     {
         float x = i - center;
-        kernel.at<float>(i,0) = 1.0/sqrt(2*M_PI*sigma)*exp(-(x*x)/(2.0*sigma));
+        kernel.at<float>(i,0) = 1.0/sqrt(2*M_PI*sigma)*exp(-(x*x)/(2.0*sigma*sigma));
     }
     return kernel;
 }
@@ -119,10 +117,10 @@ int main(int argc, char** argv)
             mask = Mat(1, 3, CV_32FC1,  Scalar(1.0/3));
             break;
         case 'c':
-            mask = getGaussKernel(5, 1.0);
+            mask = getGaussKernel(5, 3.0);
             break;
         case 'd':
-            mask = getGaussLinKernel(5, 1.0);
+            mask = getGaussLinKernel(5, 3.0);
             break;
         case 'e':
             mask = (Mat_<float>(3,3) << -1, 0, 1, -1, 0, 1, -1, 0, 1)*(1.0/9);

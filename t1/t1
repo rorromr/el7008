@@ -12,7 +12,7 @@ if [ "$1" = "clean" ]; then
 elif [ "$1" = "conv" ]; then
     for file in ./db/conv/*
     do
-        ./bin/conv c "$file"
+        ./bin/conv f "$file"
     done
 
 elif [ "$1" = "median" ]; then
