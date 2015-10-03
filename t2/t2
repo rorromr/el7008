@@ -1,0 +1,18 @@
+#!/bin/sh
+
+bold=$(tput bold)
+reset=$(tput sgr0)
+
+if [ "$1" = "clean" ]; then
+  echo "${bold}Cleaning...${reset}"
+  rm -r build bin
+
+elif [ "$1" = "make" ]; then
+  mkdir -p build
+  cd build
+  cmake ..
+  make
+else
+  echo "Uso: $./t2 make"
+fi
+
