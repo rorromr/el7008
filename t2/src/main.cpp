@@ -11,38 +11,16 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
 
-void printMat(const cv::Mat &mat, const std::string &name = "M")
-{
-    std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
-}
-
 using namespace cv;
 using namespace std;
 
-int main( int argc, char** argv)
+void printMat(const Mat &mat, const string &name = "M")
 {
+    cout << name << " = " << endl << " "  << mat << endl << endl;
+}
 
-  Mat src, src_gray;
-  Mat grad;
-
-  // Load an image
-  src = imread( argv[1] );
-  // Check
-  if( src.empty() )
-  { 
-    cout << "Imagen no encontrada" << endl;
-    return -1;
-  }
-
-  // Filtro gaussiano
-  GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
-
-  // Convert it to gray
-  cvtColor(src, src_gray, CV_BGR2GRAY);
-    
-  Mat input;
-  src_gray.convertTo(input, CV_32F);
-
+void borderFilter(const Mat &input, Mat &output)
+{
   // Generate grad_x and grad_y
   Mat grad_x, grad_y;
   Mat abs_grad_x, abs_grad_y;
@@ -61,10 +39,36 @@ int main( int argc, char** argv)
   convertScaleAbs( grad_y, abs_grad_y );
 
   // Total Gradient (approximate)
-  addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, grad );
+  addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, output );
+}
 
+int main( int argc, char** argv)
+{
+
+  Mat src, src_gray, grad;
+
+  // Load an image
+  src = imread( argv[1] );
+  // Check
+  if( src.empty() )
+  { 
+    cout << "Imagen no encontrada" << endl;
+    return -1;
+  }
+
+  // Filtro gaussiano
+  GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
+
+  // Convert it to gray
+  cvtColor(src, src_gray, CV_BGR2GRAY);   
+  Mat input;
+  src_gray.convertTo(input, CV_32F);
+
+  // Apply gradient filter
+  borderFilter(src_gray, grad);
+
+  // Show image
   imshow( "Test", grad );
-
   waitKey(500);
 
   return 0;

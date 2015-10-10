@@ -11,8 +11,5 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 link_directories(${OpenCV_LIBRARY_DIRS})
 
 # t2
-add_executable(filter src/filter.cpp)
-target_link_libraries(filter ${OpenCV_LIBS})
-
-add_executable(canny src/canny.cpp)
-target_link_libraries(canny ${OpenCV_LIBS})
+add_executable(t2 src/main.cpp)
+target_link_libraries(t2 ${OpenCV_LIBS})
