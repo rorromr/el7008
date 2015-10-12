@@ -46,13 +46,23 @@ void edgeDetector(const Mat &input, Mat &output, float threshold = 1.0)
   cv::threshold(output, output, threshold*mean, 255,  cv::THRESH_BINARY);
 }
 
+void t2( int, void* );
+
+Mat input, output;
+string windowName = "t2";
+
+/* -------- Parameters -------- */
+
+// Edge threshold ET
+string ETtrackbar = "Edge Thres.";
+int ETvalue = 10; // Binary threshold for edge detection
+int const ETmax = 255;
+
 int main( int argc, char** argv)
 {
-  // Parameters
-  float edgeThreshold = 2.0; // Binary threshold for edge detection
+  
 
-
-  Mat src, src_gray, grad;
+  Mat src, src_gray;
 
   // Load an image
   src = imread( argv[1] );
@@ -67,16 +77,30 @@ int main( int argc, char** argv)
   GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
 
   // Convert it to gray
-  cvtColor(src, src_gray, CV_BGR2GRAY);   
-  Mat input;
-  src_gray.convertTo(input, CV_32F);
+  cvtColor(src, input, CV_BGR2GRAY);   
 
-  // Apply gradient filter
-  edgeDetector(src_gray, grad, edgeThreshold);
+  namedWindow( windowName, CV_WINDOW_AUTOSIZE );
+  createTrackbar( ETtrackbar, windowName, &ETvalue, ETmax, t2);
+  
+  t2(0,0);
 
-  // Show image
-  imshow( "Test", grad );
-  waitKey(500);
+  while(true)
+  {
+    int c;
+    c = waitKey( 20 );
+    if( (char)c == 27)
+      { break; }
+   }
 
   return 0;
+}
+
+void t2( int, void* )
+{
+  // Apply edge detector
+  float edgeThreshold = ETvalue*5.0/ETmax;
+  edgeDetector(input, output, edgeThreshold);
+
+  // Show image
+  imshow( windowName, output );
 }
