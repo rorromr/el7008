@@ -19,7 +19,7 @@ void printMat(const Mat &mat, const string &name = "M")
     cout << name << " = " << endl << " "  << mat << endl << endl;
 }
 
-void borderFilter(const Mat &input, Mat &output)
+void edgeDetector(const Mat &input, Mat &output, float threshold = 1.0)
 {
   // Generate grad_x and grad_y
   Mat grad_x, grad_y;
@@ -40,10 +40,17 @@ void borderFilter(const Mat &input, Mat &output)
 
   // Total Gradient (approximate)
   addWeighted( abs_grad_x, 0.5, abs_grad_y, 0.5, 0, output );
+
+  // Median
+  float mean = cv::mean(output)[0];
+  cv::threshold(output, output, threshold*mean, 255,  cv::THRESH_BINARY);
 }
 
 int main( int argc, char** argv)
 {
+  // Parameters
+  float edgeThreshold = 2.0; // Binary threshold for edge detection
+
 
   Mat src, src_gray, grad;
 
@@ -65,7 +72,7 @@ int main( int argc, char** argv)
   src_gray.convertTo(input, CV_32F);
 
   // Apply gradient filter
-  borderFilter(src_gray, grad);
+  edgeDetector(src_gray, grad, edgeThreshold);
 
   // Show image
   imshow( "Test", grad );
