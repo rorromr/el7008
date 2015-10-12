@@ -1,4 +1,4 @@
-#define _DEBUG
+//#define _DEBUG
 
 // Print functions for debug
 #ifndef _DEBUG
@@ -55,7 +55,7 @@ string windowName = "t2";
 
 // Edge threshold ET
 string ETtrackbar = "Edge Thres.";
-int ETvalue = 10; // Binary threshold for edge detection
+int ETvalue = 160; // Binary threshold for edge detection
 int const ETmax = 255;
 
 int main( int argc, char** argv)
