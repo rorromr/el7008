@@ -26,7 +26,7 @@ $ chmod +x t2
 
 **Compilar**
 
-Compila programas.
+Compilar código.
 ```
 $ cd t2
 $ ./t2 make
@@ -34,7 +34,7 @@ $ ./t2 make
 
 **Limpiar**
 
-Elimina imágenes filtradas, binarios y makefiles generados por CMake.
+Elimina binarios y makefiles generados por CMake.
 
 ```
 $ cd /t2
@@ -43,13 +43,22 @@ $ ./t2 clean
 
 ##Ejecución de ejemplos
 
-Para ejecutar filtros con distintos imágenes de la base datos:
+Uso: `$ ./bin/t2 lRBin lTBin cRBin cABin cBBin imagen.jpg`
 
-* Filtro mediana `$ ./t1 median`
-* Equalización de histograma `$ ./t1 histeq`
-* Filtro Gaussiano `$ ./t1 conv`
+Paramatros:
+* `tlRBin`: Número de bins para radio de recta (r)
+* `tlTBin`: Número de bins para angulo de recta (theta)
+* `tcRBin`: Número de bins para radio de circulo (r)
+* `tcABin`: Número de bins para posicion a del circulo (x-a)
+* `tcBBin`: Número de bins para posicion b del circulo (x-b)
 
-Cada ejecutable, en el directorio `./bin`, posee instrucciones de uso al ejecutalo sin parametros.
+Ejemplo: 
+```
+$ cd t2
+$ ./t2 make
+$ ./bin/t2 100 180 50 50 50 db/img01.jpg
+
+```
 
 ## Base de datos
 

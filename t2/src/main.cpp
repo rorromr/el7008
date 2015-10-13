@@ -1,4 +1,4 @@
-#define _DEBUG
+//#define _DEBUG
 
 /* -------- Debug macros -------- */
 #ifndef _DEBUG
@@ -389,7 +389,7 @@ void drawCircles(const Mat &input, Mat &output, const vector<HoughCircle> &circl
   for (vector<HoughCircle>::const_iterator c = circles.begin(); c != circles.end(); ++c)
   {
     Point2f p(c->a, c->b);
-    circle(output, p, c->r, CV_RGB(250,0,0), 2, CV_AA);
+    circle(output, p, c->r, CV_RGB(0,0,255), 2, CV_AA);
   }
 }
 
@@ -410,21 +410,56 @@ int const ETmax = 255;
 
 // Number of lines NL
 string NLtrackbar = "Line num.";
-int NLvalue = 25;
-int const NLmax = 250;
+int NLvalue = 10;
+int const NLmax = 50;
 
 // Number of circles NC
 string NCtrackbar = "Circle num.";
-int NCvalue = 10;
-int const NCmax = 50;
+int NCvalue = 5;
+int const NCmax = 20;
+
+int lRBin = 100;
+int lTBin = 180;
+
+int cRBin = 50;
+int cABin = 50;
+int cBBin = 50;
 
 /* -------- Main -------- */
+void printHelp(const char* name)
+{
+    cout << "Uso: "<< name << " lRBin lTBin cRBin cABin cBBin imagen.jpg" << endl;
+    cout << "Paramatros " << endl;
+    cout << "\tlRBin - Num bin para radio de recta" <<endl;
+    cout << "\tlTBin - Num bin para angulo de recta" <<endl;
+    cout << "\tcRBin - Num bin para radio de circulo" <<endl;
+    cout << "\tcABin - Num bin para posicion a del circulo" <<endl;
+    cout << "\tcBBin - Num bin para posicion b del circulo" <<endl;
+    cout << "Ejemplo: $ "<< name <<"100 180 50 50 50 img01.jpg" <<endl;
+}
+
 
 int main( int argc, char** argv)
-{
-  
+{  
+  if (argc != 7)
+  {
+    printHelp(argv[0]);
+    exit(1);
+  }
+
+  try {
+    lRBin = atoi(argv[1]);
+    lTBin = atoi(argv[2]);
+    cRBin = atoi(argv[3]);
+    cABin = atoi(argv[4]);
+    cBBin = atoi(argv[5]);
+  } catch(exception &e) {
+    printHelp(argv[0]);
+    exit(1);
+  }
+
   // Load an image
-  src = imread( argv[1] );
+  src = imread( argv[6] );
   // Check
   if( src.empty() )
   { 
@@ -444,6 +479,7 @@ int main( int argc, char** argv)
   createTrackbar( NCtrackbar, windowName, &NCvalue, NCmax, t2);
 
   t2(0,0);
+  cout << "Presiona ESC (GUI) o Ctrl+C para salir" << endl;
 
   while(true)
   {
@@ -464,8 +500,8 @@ void t2( int, void* )
   circles.clear();
 
   edgeDetector(input, output, edgeThreshold);
-  houghLines(output, houghImage, lines, NLvalue);
-  houghCircles(output, houghImage, circles, NCvalue);
+  houghLines(output, houghImage, lines, NLvalue, lTBin, lRBin);
+  houghCircles(output, houghImage, circles, NCvalue, cABin, cBBin, cRBin);
   drawLines(src, withLines, lines);
   drawCircles(withLines, final, circles);
   // Show image
