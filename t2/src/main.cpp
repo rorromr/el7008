@@ -1,6 +1,6 @@
-//#define _DEBUG
+#define _DEBUG
 
-// Print functions for debug
+/* -------- Debug macros -------- */
 #ifndef _DEBUG
 #define PRINT_MAT(...)
 #define PRINT(...)
@@ -21,7 +21,7 @@
 using namespace cv;
 using namespace std;
 
-
+/* -------- Structs -------- */
 typedef struct
 {
   int acc;
@@ -35,6 +35,23 @@ struct HoughLineComparator {
     return l1.acc > l2.acc;
   }
 };
+
+typedef struct
+{
+  int acc;
+  float a;
+  float b;
+  float r;
+} HoughCircle;
+
+struct HoughCircleComparator {
+  bool operator() (const HoughCircle &c1, const HoughCircle &c2)
+  {
+    return c1.acc > c2.acc;
+  }
+};
+
+/* -------- Main functions -------- */
 
 void printMat(const Mat &mat, const string &name = "M")
 {
@@ -69,8 +86,8 @@ void edgeDetector(const Mat &input, Mat &output, float th = 1.0)
   threshold(grad, output, th*mean, 255,  cv::THRESH_BINARY);
 }
 
-
-void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_lines = 10, int theta_bin = 180, int r_bin = 100)
+/* -------- Hough lines detector -------- */
+void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_lines = 10, int theta_bin = 380, int r_bin = 200)
 {
   // Image size
   int width = input.cols;
@@ -128,12 +145,12 @@ void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_
   // Hough image for visualization
   
   // Max value
-  int max = 0;
+  int maxv = 0;
   for (i = 0; i < r_bin+2; ++i)
   {
       for (j = 0; j < theta_bin+2; ++j)
       {
-          max = std::max(max,acc[i][j]);
+          maxv = max(maxv,acc[i][j]);
       }
   }
 
@@ -144,7 +161,7 @@ void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_
   {
     for (j = 0; j < theta_bin; ++j)
     {
-        hough.at<unsigned char>(i,j) = (unsigned char)(acc[i][j]*255.0/max);
+        hough.at<unsigned char>(i,j) = (unsigned char)(acc[i][j]*255.0/maxv);
     }
   }
 
@@ -153,18 +170,25 @@ void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_
   float r_offset = -rmax;
   float theta_offset = -90.0*DEG2RAD;
   PRINT("r_offset %.3f, theta_offset %.3f\n", r_offset, theta_offset);
-  int votes_threshold = (int) round(0.2*sqrt(width*height));
+  const int votes_threshold = 25;
+  const int neigh_threshold = 20;
   for (i = 1; i < r_bin; ++i)
   {
     for (j = 1; j < theta_bin; ++j)
     {
       int votes = acc[i][j];
-      if ( votes > 1 && 
+      if ( votes > votes_threshold && 
         // Compare with neighborhood         
-        votes > acc[i-1][j] &&
-        votes > acc[i+1][j] &&
-        votes > acc[i][j-1] &&
-        votes > acc[i][j+1])
+        votes > neigh_threshold+acc[i-1][j] &&
+        votes > neigh_threshold+acc[i-1][j+1] &&
+        votes > neigh_threshold+acc[i-1][j-1] &&
+
+        votes > neigh_threshold+acc[i][j+1] &&
+        votes > neigh_threshold+acc[i][j-1] &&
+        
+        votes > neigh_threshold+acc[i+1][j] &&
+        votes > neigh_threshold+acc[i+1][j+1] &&
+        votes > neigh_threshold+acc[i+1][j-1])
       {
         HoughLine l;
         l.acc = votes;
@@ -195,6 +219,148 @@ void houghLines(const Mat &input, Mat &hough, vector<HoughLine> &lines, int num_
   STREAM("Found: " << num_lines);
 }
 
+void houghCircles(const Mat &input, Mat &hough, vector<HoughCircle> &circles, 
+  int num_circles = 10, int a_bin = 15, int b_bin = 15, int r_bin = 15)
+{
+  // Image size
+  int width = input.cols;
+  int height = input.rows;
+  // Max radius
+  int rmax = (int) round(width*0.2);
+  // Image size
+  float da = 1.0*width/a_bin;
+  float db = 1.0*height/b_bin;
+  float dr = 1.0*rmax/r_bin;
+
+  // Hough accumulator
+  // Create accumulator with extra rows and cols
+  int*** acc = new int**[a_bin+2];
+  int i, j, k;
+  for( i = 0; i < a_bin+2; ++i)
+  {
+    acc[i] = new int*[b_bin+2];
+    for( j = 0; j < b_bin+2; ++j)
+    {
+      acc[i][j] = new int[r_bin+2];
+      for ( k = 0; k < r_bin+2; ++k)
+      {
+        acc[i][j][k] = 0;  
+      }
+    }
+  }
+  
+  // Hough Transform
+  for( j = 0; j < height; ++j)
+  {
+    for ( i = 0; i < width; ++i)
+    {
+      // Check if the point is an edge
+      if (input.at<unsigned char>(j,i) > 0)
+      {
+        float a = 0.0, b = 0.0;
+        for (int a_i = 0; a_i < a_bin; ++a_i, a+=da)
+        {
+          b = 0.0;
+          for (int b_i = 0; b_i < b_bin; ++b_i, b+=db)
+          {
+            int r_i = (int) round(sqrt((i-a)*(i-a)+(j-b)*(j-b))/dr);
+            r_i = min(max(r_i, 1), r_bin);
+            ++acc[a_i][b_i][r_i];
+          }
+        }
+
+      }
+    }
+  }
+
+  // Peaks
+  vector<HoughCircle> peaks;
+  const int votes_threshold = 15;
+  const int neigh_threshold = 1;
+  for (i = 1; i < a_bin; ++i)
+  {
+    for (j = 1; j < b_bin; ++j)
+    {
+      for (int k = 0; k < r_bin; ++k)
+      {
+        int votes = acc[i][j][k];
+        if ( votes > votes_threshold 
+          /*
+          && 
+          // Compare with neighborhood
+          votes > neigh_threshold+acc[i-1][j-1][k-1] &&
+          votes > neigh_threshold+acc[i-1][j-1][k] &&
+          votes > neigh_threshold+acc[i-1][j-1][k+1] &&
+
+          votes > neigh_threshold+acc[i-1][j][k-1] &&
+          votes > neigh_threshold+acc[i-1][j][k] &&
+          votes > neigh_threshold+acc[i-1][j][k+1] &&
+
+          votes > neigh_threshold+acc[i-1][j+1][k-1] &&
+          votes > neigh_threshold+acc[i-1][j+1][k] &&
+          votes > neigh_threshold+acc[i-1][j+1][k+1] &&
+
+          votes > neigh_threshold+acc[i][j-1][k-1] &&
+          votes > neigh_threshold+acc[i][j-1][k] &&
+          votes > neigh_threshold+acc[i][j-1][k+1] &&
+
+          votes > neigh_threshold+acc[i][j][k-1] &&
+          votes > neigh_threshold+acc[i][j][k+1] &&
+
+          votes > neigh_threshold+acc[i][j+1][k-1] &&
+          votes > neigh_threshold+acc[i][j+1][k] &&
+          votes > neigh_threshold+acc[i][j+1][k+1] &&
+
+          votes > neigh_threshold+acc[i+1][j-1][k-1] &&
+          votes > neigh_threshold+acc[i+1][j-1][k] &&
+          votes > neigh_threshold+acc[i+1][j-1][k+1] &&
+
+          votes > neigh_threshold+acc[i+1][j][k-1] &&
+          votes > neigh_threshold+acc[i+1][j][k] &&
+          votes > neigh_threshold+acc[i+1][j][k+1] &&
+
+          votes > neigh_threshold+acc[i+1][j+1][k-1] &&
+          votes > neigh_threshold+acc[i+1][j+1][k] &&
+          votes > neigh_threshold+acc[i+1][j+1][k+1]
+          */
+          )
+        {
+          HoughCircle c;
+          c.acc = votes;
+          c.a = i*da;
+          c.b = j*db;
+          c.r = k*dr;
+          peaks.push_back(c);
+        }
+      }
+    }
+  }
+  STREAM("Peaks: " << peaks.size());
+  STREAM(" with th.: " << votes_threshold << endl);
+
+  // Sort using votes
+  HoughCircleComparator comparator;
+  sort(peaks.begin(), peaks.end(), comparator);
+  // Add to circles
+  num_circles = min(static_cast<size_t>(num_circles), peaks.size());
+  for (i = 0; i < num_circles; ++i)
+  {
+    circles.push_back(peaks[i]);
+  }
+
+  for (i = 1; i < a_bin; ++i)
+  {
+    for (j = 1; j < b_bin; ++j)
+    {
+      delete[] acc[i][j];
+    }
+    delete[] acc[i];
+  }
+  delete acc;
+  STREAM("Result: " << num_circles);
+}
+
+/* -------- Draw lines -------- */
 void drawLines(const Mat &input, Mat &output, const vector<HoughLine> &lines)
 {
   // Copy image
@@ -213,11 +379,26 @@ void drawLines(const Mat &input, Mat &output, const vector<HoughLine> &lines)
     line(output, p0, p1, CV_RGB(250,0,0), 2, CV_AA);
   }
 }
+/* -------- Draw Circles -------- */
+void drawCircles(const Mat &input, Mat &output, const vector<HoughCircle> &circles)
+{
+  // Copy image
+  output = input.clone();
+  
+  // Draw images
+  for (vector<HoughCircle>::const_iterator c = circles.begin(); c != circles.end(); ++c)
+  {
+    Point2f p(c->a, c->b);
+    circle(output, p, c->r, CV_RGB(250,0,0), 2, CV_AA);
+  }
+}
+
 
 void t2( int, void* );
 
-Mat input, output, houghImage, src, withLines;
+Mat input, output, houghImage, src, withLines, final;
 vector<HoughLine> lines;
+vector<HoughCircle> circles;
 string windowName = "t2";
 
 /* -------- Parameters -------- */
@@ -229,8 +410,13 @@ int const ETmax = 255;
 
 // Number of lines NL
 string NLtrackbar = "Line num.";
-int NLvalue = 25; // Binary threshold for edge detection
+int NLvalue = 25;
 int const NLmax = 250;
+
+// Number of circles NC
+string NCtrackbar = "Circle num.";
+int NCvalue = 10;
+int const NCmax = 50;
 
 /* -------- Main -------- */
 
@@ -255,7 +441,8 @@ int main( int argc, char** argv)
   namedWindow( windowName, CV_WINDOW_AUTOSIZE );
   createTrackbar( ETtrackbar, windowName, &ETvalue, ETmax, t2);
   createTrackbar( NLtrackbar, windowName, &NLvalue, NLmax, t2);
-  
+  createTrackbar( NCtrackbar, windowName, &NCvalue, NCmax, t2);
+
   t2(0,0);
 
   while(true)
@@ -274,9 +461,13 @@ void t2( int, void* )
   // Apply edge detector
   float edgeThreshold = ETvalue*5.0/ETmax;
   lines.clear();
+  circles.clear();
+
   edgeDetector(input, output, edgeThreshold);
   houghLines(output, houghImage, lines, NLvalue);
+  houghCircles(output, houghImage, circles, NCvalue);
   drawLines(src, withLines, lines);
+  drawCircles(withLines, final, circles);
   // Show image
-  imshow( windowName, withLines);
+  imshow( windowName, final);
 }
