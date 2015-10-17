@@ -40,91 +40,105 @@ int computeConsensus(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vect
     selected.clear();
     for (int i=0; i<(int)matches.size(); i++)
     {
-    	double x1 = keypoints1[matches[i].trainIdx].pt.x;
-    	double y1 = keypoints1[matches[i].trainIdx].pt.y;
-    	double x2 = keypoints2[matches[i].queryIdx].pt.x;
-    	double y2 = keypoints2[matches[i].queryIdx].pt.y;
-    	double x2t = 0; // Calcular posicion proyectada
-    	double y2t = 0; // Calcular posicion proyectada
-    	double ex = 0; // Calcular error de proyeccion
-    	if (ex < 40)
-    	{
-    		selected.push_back(i);
-    		cons++;
-    	}
+      double x1 = keypoints1[matches[i].trainIdx].pt.x;
+      double y1 = keypoints1[matches[i].trainIdx].pt.y;
+      double x2 = keypoints2[matches[i].queryIdx].pt.x;
+      double y2 = keypoints2[matches[i].queryIdx].pt.y;
+      double x2t = 0; // Calcular posicion proyectada
+      double y2t = 0; // Calcular posicion proyectada
+      double ex = 0; // Calcular error de proyeccion
+      if (ex < 40)
+      {
+        selected.push_back(i);
+        cons++;
+      }
     }
     return cons;
 }
 
 bool ransac(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vector<KeyPoint> &keypoints2, vector<DMatch> &accepted)
 {
-	vector<int> selected;
-	double e, theta, tx, ty;
-	// Completar para N intentos
-	int ind = rand() % matches.size();
-	genTransform(matches[ind], keypoints1, keypoints2, e, theta, tx, ty);
-	int consensus = computeConsensus(matches, keypoints1, keypoints2, selected, e, theta, tx, ty);
-	if (consensus > 30)
-	{
-		for (int i=0; i<(int)selected.size(); i++)
-			accepted.push_back(matches[selected[i]]);
-		return true;
-	}
-	return false;
+  vector<int> selected;
+  double e, theta, tx, ty;
+  // Completar para N intentos
+  int ind = rand() % matches.size();
+  genTransform(matches[ind], keypoints1, keypoints2, e, theta, tx, ty);
+  int consensus = computeConsensus(matches, keypoints1, keypoints2, selected, e, theta, tx, ty);
+  if (consensus > 30)
+  {
+    for (int i=0; i<(int)selected.size(); i++)
+      accepted.push_back(matches[selected[i]]);
+    return true;
+  }
+  return false;
 }
 
-int main(void)
+void printHelp(const char* name)
 {
-	Mat input1, input2; // Crear matriz de OpenCV
-	input1 = imread("ice1.jpg"); //Leer imagen
-	input2 = imread("ice2.jpg"); //Leer imagen
+    cout << "Uso: "<< name << " image image_ref" << endl;
+    cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" <<endl;
+}
 
-	if(input1.empty() || input2.empty()) // No encontro la imagen
-	{
-		cout<<"Imagen no encontrada"<<endl;
-		return 1; // Sale del programa anormalmente
-	}
+int main(int argc, char** argv)
+{
+  if( argc != 3)
+  {
+      printHelp(argv[0]);
+      return 1;
+  }
+  string image_name1(argv[1]);
+  string image_name2(argv[2]);
+  
+  Mat input1, input2; // Crear matriz de OpenCV
+  input1 = imread(image_name1); //Leer imagen
+  input2 = imread(image_name2); //Leer imagen
 
-	SurfFeatureDetector detector;
-	vector<KeyPoint> keypoints1;
-	detector.detect(input1, keypoints1);
+  if(input1.empty() || input2.empty()) // No encontro la imagen
+  {
+    cout<<"Imagen no encontrada"<<endl;
+    return 1; // Sale del programa anormalmente
+  }
 
-	vector<KeyPoint> keypoints2;
-	detector.detect(input2, keypoints2);
+  SurfFeatureDetector detector;
+  vector<KeyPoint> keypoints1;
+  detector.detect(input1, keypoints1);
 
-	SurfDescriptorExtractor extractor;
-	Mat descriptors1, descriptors2;
-	extractor.compute(input1, keypoints1, descriptors1);
-	extractor.compute(input2, keypoints2, descriptors2);
+  vector<KeyPoint> keypoints2;
+  detector.detect(input2, keypoints2);
 
-	BFMatcher matcher(NORM_L2);
-	vector<DMatch> matches;
-	matcher.match(descriptors2, descriptors1, matches);
+  SurfDescriptorExtractor extractor;
+  Mat descriptors1, descriptors2;
+  extractor.compute(input1, keypoints1, descriptors1);
+  extractor.compute(input2, keypoints2, descriptors2);
 
-	vector<DMatch> accepted;
-	ransac(matches, keypoints1, keypoints2, accepted);
+  BFMatcher matcher(NORM_L2);
+  vector<DMatch> matches;
+  matcher.match(descriptors2, descriptors1, matches);
 
-	// drawing the results
-	Mat output;
-	drawKeypoints(input1, keypoints1, output);
-	imshow("keypoints1", output);
-	drawKeypoints(input2, keypoints2, output);
-	imshow("keypoints2", output);
+  vector<DMatch> accepted;
+  ransac(matches, keypoints1, keypoints2, accepted);
 
-	imwrite("sift_result.jpg", output);
-	namedWindow("matches", 1);
-	Mat img_matches;
-	drawMatches(input2, keypoints2, input1, keypoints1, matches, img_matches);
-	imshow("matches", img_matches);
-	imwrite("matches.jpg", img_matches);
+  // drawing the results
+  Mat output;
+  drawKeypoints(input1, keypoints1, output);
+  imshow("keypoints1", output);
+  drawKeypoints(input2, keypoints2, output);
+  imshow("keypoints2", output);
 
-	Mat img_accepted;
-	drawMatches(input2, keypoints2, input1, keypoints1, accepted, img_matches);
-	imshow("accepted", img_matches);
-	imwrite("accepted.jpg", img_matches);
+  imwrite("sift_result.jpg", output);
+  namedWindow("matches", 1);
+  Mat img_matches;
+  drawMatches(input2, keypoints2, input1, keypoints1, matches, img_matches);
+  imshow("matches", img_matches);
+  imwrite("matches.jpg", img_matches);
 
-	cout << "Presione ENTER en una ventana o CTRL-C para salir" << endl;
-	waitKey(0);
+  Mat img_accepted;
+  drawMatches(input2, keypoints2, input1, keypoints1, accepted, img_matches);
+  imshow("accepted", img_matches);
+  imwrite("accepted.jpg", img_matches);
 
-	return 0;
+  cout << "Presione ENTER en una ventana o CTRL-C para salir" << endl;
+  waitKey(0);
+
+  return 0;
 }
