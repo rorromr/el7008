@@ -20,43 +20,46 @@
 
 Permiso de ejecución al *script*.
 ```
-$ cd t2
-$ chmod +x t2
+$ cd t3
+$ chmod +x t3
 ```
 
 **Compilar**
 
 Compilar código.
 ```
-$ cd t2
-$ ./t2 make
+$ cd t3
+$ ./t3 make
 ```
 
 **Limpiar**
 
-Elimina binarios y makefiles generados por CMake.
+Elimina binarios y makefiles generados por CMake, junto con imágenes de resultados.
 
 ```
-$ cd /t2
-$ ./t2 clean
+$ cd /t3
+$ ./t3 clean
 ```
 
-##Ejecución de ejemplos
+**Test**
 
-Uso: `$ ./bin/t2 lRBin lTBin cRBin cABin cBBin imagen.jpg`
+Test con imágen de prueba.
 
-Paramatros:
-* `tlRBin`: Número de bins para radio de recta (r)
-* `tlTBin`: Número de bins para angulo de recta (theta)
-* `tcRBin`: Número de bins para radio de circulo (r)
-* `tcABin`: Número de bins para posicion a del circulo (x-a)
-* `tcBBin`: Número de bins para posicion b del circulo (x-b)
+```
+$ cd /t3
+$ ./t3 test
+```
+
+## Ejecución de ejemplos
+
+Uso: `$ ./bin/t3 imagen imagen_ref`
+
 
 Ejemplo: 
 ```
-$ cd t2
-$ ./t2 make
-$ ./bin/t2 100 180 50 50 50 db/img01.jpg
+$ cd t3
+$ ./t3 make
+$ ./bin/t3 db/img01.jpg db/img02.jpg 
 
 ```
 
