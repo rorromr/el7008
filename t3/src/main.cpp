@@ -11,6 +11,8 @@
 #define STREAM(...) std::cout<<__VA_ARGS__<<std::endl
 #endif
 
+#define DEG2RAD 0.01745329251
+
 #include <cstdio>
 #include <iostream>
 #include <opencv2/core/core.hpp>
@@ -28,10 +30,19 @@ void printMat(const Mat &mat, const string &name = "M")
 
 void genTransform(DMatch match, vector<KeyPoint> &keypoints1, vector<KeyPoint> &keypoints2, double &e, double &theta, double &tx, double &ty)
 {
-    e = 1; // Reemplazar
-    theta = 0; // Reemplazar
-    tx = keypoints2[match.queryIdx].pt.x - keypoints1[match.trainIdx].pt.x; // Completar para rotacion y escala
-    ty = keypoints2[match.queryIdx].pt.y - keypoints1[match.trainIdx].pt.y; // Completar para rotacion y escala
+  // Prueba: keypoints2, referencia: keypoints1
+
+  // Scale factor
+  e = ((double)keypoints2[match.queryIdx].octave)/keypoints1[match.trainIdx].octave;
+  
+  // Transform angle
+  theta = keypoints2[match.queryIdx].angle - keypoints1[match.trainIdx].angle;
+
+  // Transform traslation
+  double x_ref = keypoints1[match.trainIdx].pt.x;
+  double y_ref = keypoints1[match.trainIdx].pt.y;
+  tx = keypoints2[match.queryIdx].pt.x - e*(x_ref*cos(theta*DEG2RAD)-y_ref*sin(theta*DEG2RAD));
+  ty = keypoints2[match.queryIdx].pt.y - e*(x_ref*sin(theta*DEG2RAD)+y_ref*cos(theta*DEG2RAD));
 }
 
 int computeConsensus(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vector<KeyPoint> &keypoints2, vector<int> &selected, double e, double theta, double tx, double ty)
@@ -44,10 +55,14 @@ int computeConsensus(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vect
       double y1 = keypoints1[matches[i].trainIdx].pt.y;
       double x2 = keypoints2[matches[i].queryIdx].pt.x;
       double y2 = keypoints2[matches[i].queryIdx].pt.y;
-      double x2t = 0; // Calcular posicion proyectada
-      double y2t = 0; // Calcular posicion proyectada
-      double ex = 0; // Calcular error de proyeccion
-      if (ex < 40)
+      
+      // Estimate with proyection
+      double x2t = tx + e*(x1*cos(theta*DEG2RAD) - y1*sin(theta*DEG2RAD));
+      double y2t = ty + e*(x1*sin(theta*DEG2RAD) + y1*cos(theta*DEG2RAD));
+      
+      // Proyection error
+      double ex = (x2t-x2)*(x2t-x2) + (y2t-y2)*(y2t-y2);
+      if (ex < 400)
       {
         selected.push_back(i);
         cons++;
@@ -56,21 +71,22 @@ int computeConsensus(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vect
     return cons;
 }
 
-bool ransac(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vector<KeyPoint> &keypoints2, vector<DMatch> &accepted)
+void ransac(vector<DMatch> &matches, vector<KeyPoint> &keypoints1, vector<KeyPoint> &keypoints2, vector<DMatch> &accepted)
 {
   vector<int> selected;
   double e, theta, tx, ty;
-  // Completar para N intentos
-  int ind = rand() % matches.size();
-  genTransform(matches[ind], keypoints1, keypoints2, e, theta, tx, ty);
-  int consensus = computeConsensus(matches, keypoints1, keypoints2, selected, e, theta, tx, ty);
-  if (consensus > 30)
+  
+  for (int i = 0; i < 400; ++i)
   {
-    for (int i=0; i<(int)selected.size(); i++)
-      accepted.push_back(matches[selected[i]]);
-    return true;
+    int ind = rand() % matches.size();
+    genTransform(matches[ind], keypoints1, keypoints2, e, theta, tx, ty);
+    int consensus = computeConsensus(matches, keypoints1, keypoints2, selected, e, theta, tx, ty);
+    if (consensus > 30)
+    {
+      for (int i=0; i<(int)selected.size(); i++)
+        accepted.push_back(matches[selected[i]]);
+    }
   }
-  return false;
 }
 
 void printHelp(const char* name)
