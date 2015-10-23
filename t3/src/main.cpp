@@ -33,7 +33,7 @@ void genTransform(DMatch match, vector<KeyPoint> &keypoints1, vector<KeyPoint> &
   // Prueba: keypoints2, referencia: keypoints1
 
   // Scale factor
-  e = ((double)keypoints2[match.queryIdx].octave)/keypoints1[match.trainIdx].octave;
+  e = ((double)keypoints2[match.queryIdx].size)/keypoints1[match.trainIdx].size;
   
   // Transform angle
   theta = keypoints2[match.queryIdx].angle - keypoints1[match.trainIdx].angle;
