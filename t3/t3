@@ -15,7 +15,7 @@ elif [ "$1" = "make" ]; then
   make
 
 elif [ "$1" = "test" ]; then
-  ./bin/t3 db/test_base.jpg db/test_base.jpg
+  ./bin/t3 db/ice1.jpg db/ice2.jpg
   
 else
   echo "Uso: $./t3 make|clean|test"
