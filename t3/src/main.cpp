@@ -163,9 +163,13 @@ int main(int argc, char** argv)
   // drawing the results
   Mat output;
   drawKeypoints(input1, keypoints1, output);
-  //imshow("keypoints1", output);
+  imshow("keypoints1", output);
+  imwrite("key1.jpg", output);
   drawKeypoints(input2, keypoints2, output);
-  //imshow("keypoints2", output);
+  imshow("keypoints2", output);
+  imwrite("key2.jpg", output);
+
+
 
   imwrite("sift_result.jpg", output);
   //namedWindow("matches", 1);
