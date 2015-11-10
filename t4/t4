@@ -1,0 +1,23 @@
+#!/bin/sh
+
+bold=$(tput bold)
+reset=$(tput sgr0)
+
+if [ "$1" = "clean" ]; then
+  echo "${bold}Cleaning...${reset}"
+  rm -r build bin
+  find . -not \( -path ./db -prune \) -type f -name '*.jpg' -exec rm -rf {} \;
+
+elif [ "$1" = "make" ]; then
+  mkdir -p build
+  cd build
+  cmake ..
+  make
+
+elif [ "$1" = "test" ]; then
+  ./bin/t4 db/ice1.jpg
+  
+else
+  echo "Uso: $./t4 make|clean|test"
+fi
+
