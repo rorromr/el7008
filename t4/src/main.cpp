@@ -12,23 +12,82 @@
 #endif
 
 #define DEG2RAD 0.01745329251
+#define NORM_FACTOR 0.06349363593424
 
 #include <cstdio>
 #include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <opencv2/imgproc/imgproc.hpp>
-#include <opencv2/nonfree/features2d.hpp>
+#include <math.h>
+#include <Eigen/Core>
 
 using namespace std;
 using namespace cv;
 
 void printMat(const Mat &mat, const string &name = "M")
 {
-    cout << name << " = " << endl << " "  << mat << endl << endl;
+    std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
 }
 void t4( int, void* );
-/* -------- Global params -------- */
+
+namespace Eigen
+{
+  typedef DiagonalMatrix<float, 3, 3> Diagonal3f;  
+}
+
+/* Gaussian distribution with diagonal covariance */
+class Gaussian
+{
+  public:
+    Eigen::Vector3f mean_;
+    Eigen::Diagonal3f cov_inv_;
+    float factor_;
+    
+    Gaussian(const Eigen::Vector3f& mean, const Eigen::Diagonal3f& cov, float weight):
+      mean_(mean),
+      cov_inv_(cov.inverse()),
+      factor_(weight*NORM_FACTOR*cov.diagonal().norm()) {};
+
+    float evaluate(const Eigen::Vector3f& x) const
+    {
+      return factor_*exp(-0.5*(x-mean_).transpose()*cov_inv_*(x-mean_));
+    }
+};
+
+/* Mixture of Gaussians */
+class MoG
+{
+  public:
+    std::vector<Gaussian> gaussians_;
+  
+  MoG(const std::size_t size)
+  {
+    gaussians_.reserve(size);
+  }
+
+  void add(const Gaussian& g)
+  {
+    gaussians_.push_back(g);
+  }
+
+  float evaluate(const Eigen::Vector3f& x) const
+  {
+    float val = 0;
+    std::vector<Gaussian>::const_iterator g(gaussians_.begin()), end(gaussians_.end());
+    for (; g != end; ++g)
+    {
+      val += g->evaluate(x);
+    }
+    return val;
+  } 
+};
+
+void evaluateImage(const cv::Mat& input, cv::Mat& output)
+{
+  ;
+}
+
+
 
 
 void printHelp(const char* name)
