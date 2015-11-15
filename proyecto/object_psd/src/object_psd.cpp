@@ -12,7 +12,7 @@
 ros::Publisher pub;
 double leaf_size;
 
-void config_cb (pcl_tutorial::VoxelGridConfig &config, uint32_t level) {
+void config_cb (object_psd::VoxelGridConfig &config, uint32_t level) {
   leaf_size = config.leaf_size;
   ROS_INFO("Reconfigure Leaf Size: %f", leaf_size);
 }
@@ -43,12 +43,12 @@ void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 int main (int argc, char** argv)
 {
   // Initialize ROS
-  ros::init (argc, argv, "pcl_tutorial");
+  ros::init (argc, argv, "object_psd");
   ros::NodeHandle nh;
 
   // Initialize dynamic config server
-  dynamic_reconfigure::Server<pcl_tutorial::VoxelGridConfig> server;
-  dynamic_reconfigure::Server<pcl_tutorial::VoxelGridConfig>::CallbackType cb;
+  dynamic_reconfigure::Server<object_psd::VoxelGridConfig> server;
+  dynamic_reconfigure::Server<object_psd::VoxelGridConfig>::CallbackType cb;
   cb = boost::bind(&config_cb, _1, _2);
   server.setCallback(cb);
 

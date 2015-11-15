@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(pcl_tutorial)
+project(object_psd)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -109,9 +109,9 @@ include_directories(
 ## Declare a cpp executable
 # add_executable(pcl_tutorial_node src/pcl_tutorial_node.cpp)
 
-add_executable(pc_filter src/pc_filter.cpp)
-target_link_libraries(pc_filter ${catkin_LIBRARIES})
-add_dependencies(pc_filter ${PROJECT_NAME}_gencfg)
+add_executable(object_psd src/object_psd.cpp)
+target_link_libraries(object_psd ${catkin_LIBRARIES})
+add_dependencies(object_psd ${PROJECT_NAME}_gencfg)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
