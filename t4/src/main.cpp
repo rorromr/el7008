@@ -29,8 +29,6 @@ void printMat(const Mat &mat, const string &name = "M")
     std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
 }
 
-void t4( int, void* );
-
 namespace Eigen
 {
   typedef DiagonalMatrix<float, 3, 3> Diagonal3f;  
@@ -61,7 +59,7 @@ class MoG
   public:
     std::vector<Gaussian> gaussians_;
   
-  MoG(const std::size_t size)
+  MoG(const std::size_t size = 16)
   {
     gaussians_.reserve(size);
   }
@@ -83,60 +81,115 @@ class MoG
   } 
 };
 
+typedef struct ROCPoint
+{
+  float theta;
+  unsigned int tpr;
+  unsigned int fpr;
+  inline ROCPoint(float t): theta(t), tpr(0), fpr(0) {};
+} ROCPoint;
+
+class ROC
+{
+  public:
+    std::vector<ROCPoint> point;
+    
+    ROC(std::size_t size, float theta_min, float theta_max)
+    {
+      point.reserve(size);
+      float dtheta = (theta_max - theta_min)/size;
+      for (std::size_t i = 0; i < size; ++i)
+      {
+        point.push_back(ROCPoint(dtheta*i));
+      }
+    }
+
+    void save(std::string file_name) const
+    {
+      ;
+    }
+};
 
 
-void evaluateImage(const cv::Mat& input, cv::Mat& output)
+
+void imageProc(const MoG& skin_mog, const MoG& nskin_mog, const cv::Mat& input, cv::Mat& output)
+{
+  output = cv::Mat::zeros(input.rows,input.cols,CV_32F);
+
+  unsigned char* output_row;
+  for (int i = 0; i < input.rows; ++i) {
+    for (int j = 0; j < input.cols; ++j) {
+
+      const cv::Vec3b intensity = input.at<Vec3b>(i, j);
+      // BGR
+      const Eigen::Vector3f pixel(intensity.val[2], intensity.val[1], intensity.val[0]);
+      output.at<float>(i,j) = skin_mog.evaluate(pixel)/nskin_mog.evaluate(pixel);
+
+    }
+  }
+}
+
+void evaluate(const cv::Mat& input, const cv::Mat& gt, ROC& roc)
 {
   ;
 }
 
-void fillMoG(MoG& skin, MoG& nskin)
+void fillMoG(MoG& skin_mog, MoG& nskin_mog)
 {
   // Skin MoG
-  skin.add(Gaussian(Eigen::Vector3f(73.53,29.94,17.76),    Eigen::Diagonal3f(765.40,121.44,112.80), 0.0294));
-  skin.add(Gaussian(Eigen::Vector3f(249.71,233.94,217.49), Eigen::Diagonal3f(39.94,154.44,396.05),  0.0331));
-  skin.add(Gaussian(Eigen::Vector3f(161.68,116.25,96.95),  Eigen::Diagonal3f(291.03,60.48,162.85),  0.0654));
-  skin.add(Gaussian(Eigen::Vector3f(186.07,136.62,114.40), Eigen::Diagonal3f(274.95,64.60,198.27),  0.0756));
-  skin.add(Gaussian(Eigen::Vector3f(189.26,98.37,51.18),   Eigen::Diagonal3f(633.18,222.40,250.69), 0.0554));
-  skin.add(Gaussian(Eigen::Vector3f(247.00,152.20,90.84),  Eigen::Diagonal3f(65.23,691.53,609.92),  0.0314));
-  skin.add(Gaussian(Eigen::Vector3f(150.10,72.66,37.76),   Eigen::Diagonal3f(408.63,200.77,257.57), 0.0454));
-  skin.add(Gaussian(Eigen::Vector3f(206.85,171.09,156.34), Eigen::Diagonal3f(530.08,155.08,572.79), 0.0469));
-  skin.add(Gaussian(Eigen::Vector3f(212.78,152.82,120.04), Eigen::Diagonal3f(160.57,84.52,243.90),  0.0956));
-  skin.add(Gaussian(Eigen::Vector3f(234.87,175.43,138.94), Eigen::Diagonal3f(163.80,121.57,279.22), 0.0763));
-  skin.add(Gaussian(Eigen::Vector3f(151.19,97.74,74.59),   Eigen::Diagonal3f(425.40,73.56,175.11),  0.1100));
-  skin.add(Gaussian(Eigen::Vector3f(120.52,77.55,59.82),   Eigen::Diagonal3f(330.45,70.34,151.82),  0.0676));
-  skin.add(Gaussian(Eigen::Vector3f(192.20,119.62,82.32),  Eigen::Diagonal3f(152.76,92.14,259.15),  0.0755));
-  skin.add(Gaussian(Eigen::Vector3f(214.29,136.08,87.24),  Eigen::Diagonal3f(204.90,140.17,270.19), 0.0500));
-  skin.add(Gaussian(Eigen::Vector3f(99.57,54.33,38.06),    Eigen::Diagonal3f(448.13,90.18,151.29),  0.0667));
-  skin.add(Gaussian(Eigen::Vector3f(238.88,203.08,176.91), Eigen::Diagonal3f(178.38,156.27,404.99), 0.0749));
+  skin_mog.add(Gaussian(Eigen::Vector3f(73.53,29.94,17.76),    Eigen::Diagonal3f(765.40,121.44,112.80), 0.0294));
+  skin_mog.add(Gaussian(Eigen::Vector3f(249.71,233.94,217.49), Eigen::Diagonal3f(39.94,154.44,396.05),  0.0331));
+  skin_mog.add(Gaussian(Eigen::Vector3f(161.68,116.25,96.95),  Eigen::Diagonal3f(291.03,60.48,162.85),  0.0654));
+  skin_mog.add(Gaussian(Eigen::Vector3f(186.07,136.62,114.40), Eigen::Diagonal3f(274.95,64.60,198.27),  0.0756));
+  skin_mog.add(Gaussian(Eigen::Vector3f(189.26,98.37,51.18),   Eigen::Diagonal3f(633.18,222.40,250.69), 0.0554));
+  skin_mog.add(Gaussian(Eigen::Vector3f(247.00,152.20,90.84),  Eigen::Diagonal3f(65.23,691.53,609.92),  0.0314));
+  skin_mog.add(Gaussian(Eigen::Vector3f(150.10,72.66,37.76),   Eigen::Diagonal3f(408.63,200.77,257.57), 0.0454));
+  skin_mog.add(Gaussian(Eigen::Vector3f(206.85,171.09,156.34), Eigen::Diagonal3f(530.08,155.08,572.79), 0.0469));
+  skin_mog.add(Gaussian(Eigen::Vector3f(212.78,152.82,120.04), Eigen::Diagonal3f(160.57,84.52,243.90),  0.0956));
+  skin_mog.add(Gaussian(Eigen::Vector3f(234.87,175.43,138.94), Eigen::Diagonal3f(163.80,121.57,279.22), 0.0763));
+  skin_mog.add(Gaussian(Eigen::Vector3f(151.19,97.74,74.59),   Eigen::Diagonal3f(425.40,73.56,175.11),  0.1100));
+  skin_mog.add(Gaussian(Eigen::Vector3f(120.52,77.55,59.82),   Eigen::Diagonal3f(330.45,70.34,151.82),  0.0676));
+  skin_mog.add(Gaussian(Eigen::Vector3f(192.20,119.62,82.32),  Eigen::Diagonal3f(152.76,92.14,259.15),  0.0755));
+  skin_mog.add(Gaussian(Eigen::Vector3f(214.29,136.08,87.24),  Eigen::Diagonal3f(204.90,140.17,270.19), 0.0500));
+  skin_mog.add(Gaussian(Eigen::Vector3f(99.57,54.33,38.06),    Eigen::Diagonal3f(448.13,90.18,151.29),  0.0667));
+  skin_mog.add(Gaussian(Eigen::Vector3f(238.88,203.08,176.91), Eigen::Diagonal3f(178.38,156.27,404.99), 0.0749));
 
   // Non skin MoG
-  nskin.add(Gaussian(Eigen::Vector3f(254.37,254.41,253.82), Eigen::Diagonal3f(2.77,2.81,5.46),         0.0637));
-  nskin.add(Gaussian(Eigen::Vector3f(9.39,8.09,8.52),       Eigen::Diagonal3f(46.84,33.59,32.48),      0.0516));
-  nskin.add(Gaussian(Eigen::Vector3f(96.57,96.95,91.53),    Eigen::Diagonal3f(280.69,156.79,436.58),   0.0864));
-  nskin.add(Gaussian(Eigen::Vector3f(160.44,162.49,159.06), Eigen::Diagonal3f(355.98,115.89,591.24),   0.0636));
-  nskin.add(Gaussian(Eigen::Vector3f(74.98,63.23,46.33),    Eigen::Diagonal3f(414.84,245.95,361.27),   0.0747));
-  nskin.add(Gaussian(Eigen::Vector3f(121.83,60.88,18.31),   Eigen::Diagonal3f(2502.24,1383.53,237.18), 0.0365));
-  nskin.add(Gaussian(Eigen::Vector3f(202.18,154.88,91.04),  Eigen::Diagonal3f(957.42,1766.94,1582.52), 0.0349));
-  nskin.add(Gaussian(Eigen::Vector3f(193.06,201.93,206.55), Eigen::Diagonal3f(562.88,190.23,447.28),   0.0649));
-  nskin.add(Gaussian(Eigen::Vector3f(51.88,57.14,61.55),    Eigen::Diagonal3f(344.11,191.77,433.40),   0.0656));
-  nskin.add(Gaussian(Eigen::Vector3f(30.88,26.84,25.32),    Eigen::Diagonal3f(222.07,118.65,182.41),   0.1189));
-  nskin.add(Gaussian(Eigen::Vector3f(44.97,85.96,131.95),   Eigen::Diagonal3f(651.32,840.52,963.67),   0.0362));
-  nskin.add(Gaussian(Eigen::Vector3f(236.02,236.27,230.70), Eigen::Diagonal3f(225.03,117.29,331.95),   0.0849));
-  nskin.add(Gaussian(Eigen::Vector3f(207.86,191.20,164.12), Eigen::Diagonal3f(494.04,237.69,533.52),   0.0368));
-  nskin.add(Gaussian(Eigen::Vector3f(99.83,148.11,188.17),  Eigen::Diagonal3f(955.88,654.95,916.70),   0.0389));
-  nskin.add(Gaussian(Eigen::Vector3f(135.06,131.92,123.10), Eigen::Diagonal3f(350.35,130.30,388.43),   0.0943));
-  nskin.add(Gaussian(Eigen::Vector3f(135.96,103.89,66.88),  Eigen::Diagonal3f(806.44,642.20,350.36),   0.0477));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(254.37,254.41,253.82), Eigen::Diagonal3f(2.77,2.81,5.46),         0.0637));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(9.39,8.09,8.52),       Eigen::Diagonal3f(46.84,33.59,32.48),      0.0516));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(96.57,96.95,91.53),    Eigen::Diagonal3f(280.69,156.79,436.58),   0.0864));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(160.44,162.49,159.06), Eigen::Diagonal3f(355.98,115.89,591.24),   0.0636));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(74.98,63.23,46.33),    Eigen::Diagonal3f(414.84,245.95,361.27),   0.0747));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(121.83,60.88,18.31),   Eigen::Diagonal3f(2502.24,1383.53,237.18), 0.0365));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(202.18,154.88,91.04),  Eigen::Diagonal3f(957.42,1766.94,1582.52), 0.0349));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(193.06,201.93,206.55), Eigen::Diagonal3f(562.88,190.23,447.28),   0.0649));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(51.88,57.14,61.55),    Eigen::Diagonal3f(344.11,191.77,433.40),   0.0656));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(30.88,26.84,25.32),    Eigen::Diagonal3f(222.07,118.65,182.41),   0.1189));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(44.97,85.96,131.95),   Eigen::Diagonal3f(651.32,840.52,963.67),   0.0362));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(236.02,236.27,230.70), Eigen::Diagonal3f(225.03,117.29,331.95),   0.0849));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(207.86,191.20,164.12), Eigen::Diagonal3f(494.04,237.69,533.52),   0.0368));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(99.83,148.11,188.17),  Eigen::Diagonal3f(955.88,654.95,916.70),   0.0389));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(135.06,131.92,123.10), Eigen::Diagonal3f(350.35,130.30,388.43),   0.0943));
+  nskin_mog.add(Gaussian(Eigen::Vector3f(135.96,103.89,66.88),  Eigen::Diagonal3f(806.44,642.20,350.36),   0.0477));
 }
 
 
 void printHelp(const char* name)
 {
-    cout << "Uso: "<< name << " image image_ref" << endl;
-    cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" <<endl;
+  cout << "Uso: "<< name << " image image_ref" << endl;
+  cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" <<endl;
 }
 
-Mat input1, input2; // Crear matriz de OpenCV
+void t4( int, void* );
+/* -------- Global params -------- */
+string windowName = "t4 MoG Skin";
+// Theta
+int thetaInt = 50;
+string thetaTrackbar = "Theta";
+int const thetaMax = 100;
+
+Mat input, ground_truth, output; // Crear matriz de OpenCV
+MoG skin, nskin;
 
 int main(int argc, char** argv)
 {
@@ -145,17 +198,30 @@ int main(int argc, char** argv)
       printHelp(argv[0]);
       return 1;
   }
-  string image_name1(argv[1]);
-  string image_name2(argv[2]);
+  string image_name(argv[1]);
+  string gt_name(argv[2]);
   
-  input1 = imread(image_name1); //Leer imagen
-  input2 = imread(image_name2); //Leer imagen
+  input = imread(image_name); //Leer imagen
+  ground_truth = imread(gt_name); //Leer imagen
 
-  if(input1.empty() || input2.empty()) // No encontro la imagen
+  if(input.empty()) // No encontro la imagen
   {
-    cout<<"Imagen '"<< image_name1 <<"' no encontrada"<<endl;
+    cout << "Imagen '" << image_name << "' no encontrada" << endl;
     return 1; // Sale del programa anormalmente
   }
+  if(ground_truth.empty()) // No encontro ground truth
+  {
+    cout << "Imagen Ground Truth'" << gt_name << "' no encontrada" << endl;
+    return 1; // Sale del programa anormalmente
+  }
+
+  // Fill MoG params
+  fillMoG(skin, nskin);
+
+  // Window
+  namedWindow( windowName, CV_WINDOW_AUTOSIZE );
+  createTrackbar( thetaTrackbar, windowName, &thetaInt, thetaMax, t4);
+
 
   t4(0,0);
   cout << "Presiona ESC (GUI) o Ctrl+C para salir" << endl;
@@ -173,4 +239,8 @@ int main(int argc, char** argv)
 
 void t4( int, void* )
 {
+  float theta = 0.02*thetaInt;
+  std::cout << "Usando theta = " << theta << std::endl;
+  imageProc( skin, nskin, input, output);
+  imshow( windowName, output);
 }
