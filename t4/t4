@@ -17,7 +17,10 @@ elif [ "$1" = "make" ]; then
 elif [ "$1" = "test" ]; then
   ./bin/t4 ./db/0024.jpg ./db/0024.bmp 
   
+elif [ "$1" = "plot" ]; then
+  python src/plot.py roc.csv
+
 else
-  echo "Uso: $./t4 make|clean|test"
+  echo "Uso: $./t4 make|clean|test|plot"
 fi
 

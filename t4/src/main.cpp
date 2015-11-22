@@ -16,15 +16,15 @@
 
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 #include <opencv2/core/core.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <math.h>
 #include <Eigen/Core>
 
-using namespace std;
-using namespace cv;
 
-void printMat(const Mat &mat, const string &name = "M")
+void printMat(const cv::Mat &mat, const std::string &name = "M")
 {
     std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
 }
@@ -84,9 +84,9 @@ class MoG
 typedef struct ROCPoint
 {
   float theta;
-  unsigned int tpr;
-  unsigned int fpr;
-  inline ROCPoint(float t): theta(t), tpr(0), fpr(0) {};
+  float tpr;
+  float fpr;
+  inline ROCPoint(float t): theta(t), tpr(0.0), fpr(0.0) {};
 } ROCPoint;
 
 class ROC
@@ -104,23 +104,31 @@ class ROC
       }
     }
 
-    void save(std::string file_name) const
+    void save(const char* file_name) const
     {
-      ;
+      std::ofstream file(file_name);
+      if (file.is_open())
+      {
+        for (std::vector<ROCPoint>::const_iterator i = point.begin(); i != point.end(); ++i)
+        {
+          file << i->theta << "," << i->tpr << "," << i->fpr << "\n";
+        }
+        file.close();
+        std::cout << "ROC saved: '" << file_name << "'" << std::endl;
+      }
+      else std::cout << "Unable save file" << std::endl;
     }
 };
-
 
 
 void imageProc(const MoG& skin_mog, const MoG& nskin_mog, const cv::Mat& input, cv::Mat& output)
 {
   output = cv::Mat::zeros(input.rows,input.cols,CV_32F);
 
-  unsigned char* output_row;
   for (int i = 0; i < input.rows; ++i) {
     for (int j = 0; j < input.cols; ++j) {
 
-      const cv::Vec3b intensity = input.at<Vec3b>(i, j);
+      const cv::Vec3b intensity = input.at<cv::Vec3b>(i, j);
       // BGR
       const Eigen::Vector3f pixel(intensity.val[2], intensity.val[1], intensity.val[0]);
       output.at<float>(i,j) = skin_mog.evaluate(pixel)/nskin_mog.evaluate(pixel);
@@ -129,10 +137,24 @@ void imageProc(const MoG& skin_mog, const MoG& nskin_mog, const cv::Mat& input, 
   }
 }
 
-void evaluate(const cv::Mat& input, const cv::Mat& gt, ROC& roc)
+void evaluate(const cv::Mat& input, const cv::Mat& gt, unsigned int cond_pos, unsigned int cond_neg, ROC& roc)
 {
-  ;
-}
+  for (std::vector<ROCPoint>::iterator p = roc.point.begin(); p != roc.point.end(); ++p)
+  {
+    for (int i = 0; i < input.rows; ++i)
+    {
+      for (int j = 0; j < input.cols; ++j)
+      {
+        bool skin_test = input.at<float>(i,j) > p->theta;
+        bool skin_gt = gt.at<unsigned char>(i,j) > 0;
+        if (skin_test && skin_gt) ++(p->tpr);
+        else if (skin_test && !skin_gt) ++(p->fpr);
+      }
+    }
+    p->tpr /= cond_pos;
+    p->fpr /= cond_neg;
+  }
+}  
 
 void fillMoG(MoG& skin_mog, MoG& nskin_mog)
 {
@@ -176,20 +198,21 @@ void fillMoG(MoG& skin_mog, MoG& nskin_mog)
 
 void printHelp(const char* name)
 {
-  cout << "Uso: "<< name << " image image_ref" << endl;
-  cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" <<endl;
+  std::cout << "Uso: "<< name << " image image_ref" << std::endl;
+  std::cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" << std::endl;
 }
 
 void t4( int, void* );
 /* -------- Global params -------- */
-string windowName = "t4 MoG Skin";
+std::string windowName = "t4 MoG: Skin";
 // Theta
 int thetaInt = 50;
-string thetaTrackbar = "Theta";
+std::string thetaTrackbar = "Theta";
 int const thetaMax = 100;
 
-Mat input, ground_truth, output; // Crear matriz de OpenCV
+cv::Mat input, ground_truth, gt_b, gt_gray, output, output_b; // Crear matriz de OpenCV
 MoG skin, nskin;
+ROC roc(100, 0.01, 2.0);
 
 int main(int argc, char** argv)
 {
@@ -198,38 +221,48 @@ int main(int argc, char** argv)
       printHelp(argv[0]);
       return 1;
   }
-  string image_name(argv[1]);
-  string gt_name(argv[2]);
+  std::string image_name(argv[1]);
+  std::string gt_name(argv[2]);
   
-  input = imread(image_name); //Leer imagen
-  ground_truth = imread(gt_name); //Leer imagen
+  input = cv::imread(image_name); //Leer imagen
+  ground_truth = cv::imread(gt_name); //Leer imagen
 
   if(input.empty()) // No encontro la imagen
   {
-    cout << "Imagen '" << image_name << "' no encontrada" << endl;
+    std::cout << "Imagen '" << image_name << "' no encontrada" << std::endl;
     return 1; // Sale del programa anormalmente
   }
   if(ground_truth.empty()) // No encontro ground truth
   {
-    cout << "Imagen Ground Truth'" << gt_name << "' no encontrada" << endl;
+    std::cout << "Imagen Ground Truth'" << gt_name << "' no encontrada" << std::endl;
     return 1; // Sale del programa anormalmente
   }
-
+  // Ground Truth threshold
+  cv::cvtColor(ground_truth, gt_gray, CV_BGR2GRAY);
+  cv::threshold(gt_gray, gt_b, 245, 255, 1);
+  unsigned int cond_pos = cv::countNonZero(gt_b);
+  unsigned int cond_neg = gt_b.cols*gt_b.rows-cond_pos;
+  STREAM("Cond Pos: " << cond_pos);
+  STREAM("Cond Neg: " << cond_neg);
   // Fill MoG params
   fillMoG(skin, nskin);
 
   // Window
-  namedWindow( windowName, CV_WINDOW_AUTOSIZE );
-  createTrackbar( thetaTrackbar, windowName, &thetaInt, thetaMax, t4);
+  cv::namedWindow( windowName, CV_WINDOW_AUTOSIZE );
+  cv::createTrackbar( thetaTrackbar, windowName, &thetaInt, thetaMax, t4);
 
+  imageProc( skin, nskin, input, output);
+  evaluate(output, gt_b, cond_pos, cond_neg, roc);
+  roc.save("roc.csv");
 
   t4(0,0);
-  cout << "Presiona ESC (GUI) o Ctrl+C para salir" << endl;
+  cv::imshow("t4 MoG: Ground Truth", gt_b);
+  std::cout << "Presiona ESC (GUI) o Ctrl+C para salir" << std::endl;
 
   while(true)
   {
     int c;
-    c = waitKey( 20 );
+    c = cv::waitKey( 20 );
     if( (char)c == 27)
       { break; }
   }
@@ -240,7 +273,7 @@ int main(int argc, char** argv)
 void t4( int, void* )
 {
   float theta = 0.02*thetaInt;
-  std::cout << "Usando theta = " << theta << std::endl;
-  imageProc( skin, nskin, input, output);
-  imshow( windowName, output);
+  std::cout << "Using theta = " << theta << std::endl;
+  cv::threshold(output, output_b, theta, 3.0, 1);  
+  cv::imshow( windowName, output_b);
 }
