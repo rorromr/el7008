@@ -1,4 +1,4 @@
-#Tarea 3
+#Tarea 4
 
 **EL7008 - Procesamiento Avanzado de Imágenes**
 
@@ -12,6 +12,8 @@
 * make 3.81
 * cmake 2.8
 * opencv 2.4.8
+* Eigen 3
+* Python (numpy, matplotlib)
 
 
 ## Compilación
@@ -20,16 +22,16 @@
 
 Permiso de ejecución al *script*.
 ```
-$ cd t3
-$ chmod +x t3
+$ cd t4
+$ chmod +x t4
 ```
 
 **Compilar**
 
 Compilar código.
 ```
-$ cd t3
-$ ./t3 make
+$ cd t4
+$ ./t4 make
 ```
 
 **Limpiar**
@@ -37,8 +39,8 @@ $ ./t3 make
 Elimina binarios y makefiles generados por CMake, junto con imágenes de resultados.
 
 ```
-$ cd /t3
-$ ./t3 clean
+$ cd /t4
+$ ./t4 clean
 ```
 
 **Test**
@@ -46,20 +48,29 @@ $ ./t3 clean
 Test con imágen de prueba.
 
 ```
-$ cd /t3
-$ ./t3 test
+$ cd /t4
+$ ./t4 test
+```
+
+**Gráfico curva ROC**
+
+Realiza un gráfico de la curva ROC usando `roc.csv` (requiere Python, numpy y matplotlib).
+
+```
+$ cd /t4
+$ ./t4 plot
 ```
 
 ## Ejecución de ejemplos
 
-Uso: `$ ./bin/t3 imagen imagen_ref`
+Uso: `$ ./bin/t4 imagen imagen_ground_truth`
 
 
 Ejemplo: 
 ```
-$ cd t3
-$ ./t3 make
-$ ./bin/t3 db/img01.jpg db/img02.jpg 
+$ cd t4
+$ ./t4 make
+$ ./bin/t4 ./db/0024.jpg ./db/0024.bmp
 
 ```
 
