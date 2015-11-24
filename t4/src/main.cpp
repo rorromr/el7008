@@ -198,8 +198,8 @@ void fillMoG(MoG& skin_mog, MoG& nskin_mog)
 
 void printHelp(const char* name)
 {
-  std::cout << "Uso: "<< name << " image image_ref" << std::endl;
-  std::cout << "Ejemplo: $ "<< name <<" ice1.jpg ice2.jpg" << std::endl;
+  std::cout << "Uso: "<< name << " imagen ground_truth" << std::endl;
+  std::cout << "Ejemplo: $ "<< name <<" ./db/0024.jpg ./db/0024.bmp" << std::endl;
 }
 
 void t4( int, void* );
@@ -253,7 +253,9 @@ int main(int argc, char** argv)
 
   imageProc( skin, nskin, input, output);
   evaluate(output, gt_b, cond_pos, cond_neg, roc);
-  roc.save("roc.csv");
+  // get name
+  std::string roc_name = gt_name.substr(0,gt_name.find_last_of(".")) + "_roc.cvs";
+  roc.save(roc_name.c_str());
 
   t4(0,0);
   cv::imshow("t4 MoG: Ground Truth", gt_b);

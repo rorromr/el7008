@@ -6,7 +6,6 @@ reset=$(tput sgr0)
 if [ "$1" = "clean" ]; then
   echo "${bold}Cleaning...${reset}"
   rm -r build bin
-  find . -not \( -path ./db -prune \) -type f -name '*.jpg' -exec rm -rf {} \;
 
 elif [ "$1" = "make" ]; then
   mkdir -p build
@@ -18,9 +17,14 @@ elif [ "$1" = "test" ]; then
   ./bin/t4 ./db/0024.jpg ./db/0024.bmp 
   
 elif [ "$1" = "plot" ]; then
-  python src/plot.py roc.csv
+  python src/plot_complete.py ./db
+
+elif [ "$1" = "roc" ]; then
+  for i in ./db/*.jpg; do
+    ./bin/t4 $i ${i%.*}.bmp
+  done
 
 else
-  echo "Uso: $./t4 make|clean|test|plot"
+  echo "Uso: $./t4 make|clean|test|plot|roc"
 fi
 
