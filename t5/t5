@@ -1,0 +1,30 @@
+#!/bin/sh
+
+bold=$(tput bold)
+reset=$(tput sgr0)
+
+if [ "$1" = "clean" ]; then
+  echo "${bold}Cleaning...${reset}"
+  rm -r build bin
+
+elif [ "$1" = "make" ]; then
+  mkdir -p build
+  cd build
+  cmake ..
+  make
+
+elif [ "$1" = "test" ]; then
+  ./bin/t5 ./db/0024.jpg ./db/0024.bmp 
+  
+elif [ "$1" = "plot" ]; then
+  python src/plot_complete.py ./db
+
+elif [ "$1" = "roc" ]; then
+  for i in ./db/*.jpg; do
+    ./bin/t5 $i ${i%.*}.bmp
+  done
+
+else
+  echo "Uso: $./t5 make|clean|test|plot|roc"
+fi
+
