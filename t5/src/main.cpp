@@ -28,6 +28,7 @@ void printMat(const cv::Mat &mat, const std::string &name = "M")
     std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
 }
 
+//https://github.com/Itseez/opencv/blob/2.4/modules/contrib/src/facerec.cpp#L719
 template <typename _Tp> static
 inline void elbp_(cv::InputArray _src, cv::OutputArray _dst, int radius, int neighbors) {
     //get matrices
