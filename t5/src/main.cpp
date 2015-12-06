@@ -1,4 +1,4 @@
-//#define _DEBUG
+#define _DEBUG
 
 /* -------- Debug macros -------- */
 #ifndef _DEBUG
@@ -169,6 +169,11 @@ class Face
       histograms.push_back(p);
     }
 
+    cv::Mat getLBP()
+    {
+      return lbp<unsigned char>(face, LBP_RADIUS, LBP_NEIGHBORS);
+    }
+
     void show(int delay = 20)
     {
       cv::imshow("Face", face);
@@ -204,10 +209,6 @@ void getHist(const fs::path& root, cv::Mat& hist)
       Face face(file_name);
       face.crop();
       face.getLBPHist(hist);
-      #ifdef _DEBUG
-        face->show();
-        STREAM(*face);
-      #endif
     }
     ++it;
   }
@@ -249,7 +250,7 @@ int main(int argc, char** argv)
   // Train data
   cv::Mat train_labels, train_feat;
   cv::vconcat(female_feat, male_feat, train_feat);
-  cv::vconcat(male_labels, female_labels, train_labels);
+  cv::vconcat(female_labels, male_labels, train_labels);
   std::cout << "Train data: (" << train_feat.rows << "," << train_feat.cols << ")" << std::endl;
 
   // SVM parameters
@@ -266,23 +267,28 @@ int main(int argc, char** argv)
   SVM.train(train_feat, train_labels, cv::Mat(), cv::Mat(), params);
 
   // Test
-  cv::Mat test_male_results, test_female_results;
-  SVM.predict(male_feat, test_male_results);
-  SVM.predict(female_feat, test_female_results);
+  cv::Mat male_results, female_results;
+  SVM.predict(female_feat, female_results);
+  SVM.predict(male_feat, male_results);
+  
+  // Results
+  int tp = cv::sum(female_results)[0]; // True positives female
+  int cp = female_results.rows; // Condition Positives
+  int fn = cp - tp; // False negative
+  float tpr = static_cast<float>(tp)/cp;
 
-  // display results
-  int s_male   = cv::sum(test_male_results  )[0];
-  int s_female = cv::sum(test_female_results)[0];
-  int len_male   = test_male_results.rows;
-  int len_female = test_female_results.rows;
-  int n_correct_classifications = s_male + (len_female-s_female);
-  float rec_rate = n_correct_classifications/(len_male + len_female + 0.0);
-  printf("\nBy genre:\n");
-  printf(" - Male   (%f) - (%d/%d)\n",(0.0+s_male)/len_male,s_male,len_male);
-  printf(" - Female (%f) - (%d/%d)\n",(0.0 + len_female-s_female)/len_female,(len_female-s_female),len_female);
-  printf("Summary:\n");
-  printf(" - class. rate (%f) - (%d/%d)\n",rec_rate,n_correct_classifications,len_male + len_female);
-  printf(" - error. rate (%f) - (%d/%d)\n",1.0-rec_rate,len_male+len_female - n_correct_classifications,len_male + len_female);
+  int fp = cv::sum(male_results)[0]; // False positives
+  int cn = male_results.rows; // Condition Negatives
+  int tn = cn - fp; // True Negatives
+  float fpr = static_cast<float>(fp)/cn;
+  
+  // Accuracy
+  float acc = static_cast<float>(tp+tn)/(cp+cn);
 
+  std::cout << "Results:" << std::endl;
+  std::cout << "TPR: " << tpr << std::endl;
+  std::cout << "FPR: " << fpr << std::endl;
+  std::cout << "Accuracy: " << acc << std::endl;
+  
   return 0;
 }
