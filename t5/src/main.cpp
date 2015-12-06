@@ -214,6 +214,22 @@ void getHist(const fs::path& root, cv::Mat& hist)
   }
 }
 
+void getSet(int n_train, const cv::Mat& src, cv::Mat& train, cv::Mat& test)
+{
+  std::srand(std::time(0)); // Set seed
+  int n = src.rows;
+  if (n_train > n) return; // Check
+  // Generate random permutation
+  std::vector<int> idx(n);
+  for (int i = 0; i < n; ++i) idx[i] = i;
+  std::random_shuffle(idx.begin(), idx.end());
+  // Fill data
+  for (int i = 0; i < n_train; ++i)
+    train.push_back(src.row(idx[i]));
+  for (int i = n_train; i < n; ++i)
+    test.push_back(src.row(idx[i]));
+}
+
 void printMat(const cv::Mat &mat, const std::string &name = "M")
 {
     std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
@@ -222,7 +238,7 @@ void printMat(const cv::Mat &mat, const std::string &name = "M")
 
 void printHelp(const char* name)
 {
-  std::cout << "Uso: "<< name << " train ./db/female ./db/male" << std::endl;
+  std::cout << "Uso: " << name << " ./db/female ./db/male" << std::endl;
 }
 
 
@@ -237,20 +253,29 @@ int main(int argc, char** argv)
   std::cout << "Male DB: " << argv[2] << std::endl;
   
   // Get features
-  cv::Mat male_feat, female_feat;
+  cv::Mat female_feat, male_feat;
   getHist(fs::path(argv[1]), female_feat);
   getHist(fs::path(argv[2]), male_feat);
 
-  // Label
-  cv::Mat female_labels   = cv::Mat(female_feat.rows, 1, CV_32FC1, cv::Scalar(1.0));
-  cv::Mat male_labels = cv::Mat(male_feat.rows, 1, CV_32FC1, cv::Scalar(0.0));
+  // Size of train set
+  int n_train_female = static_cast<int>(floor(0.7*female_feat.rows));
+  int n_train_male = static_cast<int>(floor(0.7*male_feat.rows));
+
+  // Get sets
+  cv::Mat female_train_feat, male_train_feat;
+  cv::Mat female_test_feat, male_test_feat;
+  getSet(n_train_female, female_feat, female_train_feat, female_test_feat);
+  getSet(n_train_male, male_feat, male_train_feat, male_test_feat);
+
+  // Train data
+  cv::Mat female_train_labels   = cv::Mat(female_train_feat.rows, 1, CV_32FC1, cv::Scalar(1.0));
+  cv::Mat male_train_labels = cv::Mat(male_train_feat.rows, 1, CV_32FC1, cv::Scalar(0.0));
   std::cout << "Female label: 1" << std::endl;
   std::cout << "Male label: 0" << std::endl;
 
-  // Train data
   cv::Mat train_labels, train_feat;
-  cv::vconcat(female_feat, male_feat, train_feat);
-  cv::vconcat(female_labels, male_labels, train_labels);
+  cv::vconcat(female_train_feat, male_train_feat, train_feat);
+  cv::vconcat(female_train_labels, male_train_labels, train_labels);
   std::cout << "Train data: (" << train_feat.rows << "," << train_feat.cols << ")" << std::endl;
 
   // SVM parameters
@@ -266,10 +291,10 @@ int main(int argc, char** argv)
   cv::SVM SVM;
   SVM.train(train_feat, train_labels, cv::Mat(), cv::Mat(), params);
 
-  // Test
-  cv::Mat male_results, female_results;
-  SVM.predict(female_feat, female_results);
-  SVM.predict(male_feat, male_results);
+  // Test data
+  cv::Mat female_results, male_results;
+  SVM.predict(female_test_feat, female_results);
+  SVM.predict(male_test_feat, male_results);
   
   // Results
   int tp = cv::sum(female_results)[0]; // True positives female
