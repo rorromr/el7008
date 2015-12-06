@@ -53,7 +53,7 @@ int main (int argc, char** argv)
   server.setCallback(cb);
 
   // Create a ROS subscriber for the input point cloud
-  ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> ("/bender/head_sensor/depth/points", 1, cloud_cb);
+  ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> ("input", 1, cloud_cb);
 
   // Create a ROS publisher for the output point cloud
   pub = nh.advertise<sensor_msgs::PointCloud2> ("output", 1);
