@@ -21,6 +21,68 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <math.h>
+#include <boost/filesystem.hpp>
+
+namespace fs = ::boost::filesystem;
+
+class Face
+{
+  public:
+    cv::Point2i left;
+    cv::Point2i right;
+    cv::Mat face;
+
+    Face():
+      left(0,0),
+      right(0,0)
+    {
+    }
+
+    Face(const std::string& file_name, const std::string& info_ext = std::string(".txt"),
+      const std::string& img_ext = std::string(".jpg"))
+    {
+      // Open info file
+      std::ifstream in((file_name+info_ext).c_str());
+      // Fill info
+      in >> *this;
+      // Load image
+      //face = cv::imread((file_name+img_ext), CV_LOAD_IMAGE_GRAYSCALE);
+    }
+
+    friend std::ostream &operator<< (std::ostream &output, const Face& info)
+    { 
+      output << "l:(" << info.left.x << "," << info.left.y << ") r:(" << info.right.x << "," << info.right.y << ")";
+      return output;            
+    }
+
+    friend std::istream &operator>> (std::istream  &input, Face& info)
+    { 
+      input >> info.left.x >> info.left.y >> info.right.x >> info.right.y;
+      return input;            
+    }
+};
+
+void getImages(const fs::path& root)
+{
+  if(!fs::exists(root) || !fs::is_directory(root)) return;
+
+  fs::recursive_directory_iterator it(root);
+  fs::recursive_directory_iterator endit;
+
+  while(it != endit)
+  {
+    if(fs::is_regular_file(*it))
+    {
+      std::string full_path = it->path().string();
+      std::string file_name = full_path.substr(0,full_path.find_last_of("."));
+      Face face(file_name);
+      std::cout << face << std::endl;     
+    }
+
+    ++it;
+  }
+}
+
 
 
 void printMat(const cv::Mat &mat, const std::string &name = "M")
@@ -90,7 +152,15 @@ cv::Mat input, ground_truth, gt_b, gt_gray, output, output_b; // Crear matriz de
 
 int main(int argc, char** argv)
 {
-  if( argc != 3)
+  
+
+  getImages(fs::path(argv[1]));
+  /*
+  std::string file(argv[1]);
+  FaceInfo test(file);
+  std::cout << test << std::endl;
+  */
+/*  if( argc != 3)
   {
       printHelp(argv[0]);
       return 1;
@@ -121,7 +191,7 @@ int main(int argc, char** argv)
     c = cv::waitKey( 20 );
     if( (char)c == 27)
       { break; }
-  }
+  }*/
 
   return 0;
 }
