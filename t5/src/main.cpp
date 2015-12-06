@@ -11,17 +11,17 @@
 #define STREAM(...) std::cout<<__VA_ARGS__<<std::endl
 #endif
 
-#define DEG2RAD 0.01745329251
-#define NORM_FACTOR 0.06349363593424
-
 #include <cstdio>
 #include <iostream>
 #include <fstream>
+#include <math.h>
+// File utils
+#include <boost/filesystem.hpp>
+// OpenCV
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include <math.h>
-#include <boost/filesystem.hpp>
+#include <opencv2/ml/ml.hpp>
 
 namespace fs = ::boost::filesystem;
 
@@ -158,7 +158,7 @@ class Face
       cropped.copyTo(face);
     }
 
-    void getLBPHist(std::vector<cv::Mat>& histograms)
+    void getLBPHist(cv::Mat& histograms)
     {
       // Calc LBP
        cv::Mat lbp_image = lbp<unsigned char>(face, LBP_RADIUS, LBP_NEIGHBORS);
@@ -167,7 +167,6 @@ class Face
         static_cast<int>(std::pow(2.0, static_cast<double>(LBP_NEIGHBORS))),
         LBP_GRID_X, LBP_GRID_Y);
       histograms.push_back(p);
-      
     }
 
     void show(int delay = 20)
@@ -189,7 +188,7 @@ class Face
     }
 };
 
-void getHist(const fs::path& root, std::vector<cv::Mat>& hist)
+void getHist(const fs::path& root, cv::Mat& hist)
 {
   if(!fs::exists(root) || !fs::is_directory(root)) return;
 
@@ -214,7 +213,6 @@ void getHist(const fs::path& root, std::vector<cv::Mat>& hist)
   }
 }
 
-
 void printMat(const cv::Mat &mat, const std::string &name = "M")
 {
     std::cout << name << " = " << std::endl << " "  << mat << std::endl << std::endl;
@@ -226,17 +224,6 @@ void printHelp(const char* name)
   std::cout << "Uso: "<< name << " train ./db/female ./db/male" << std::endl;
 }
 
-void t5( int, void* );
-/* -------- Global params -------- */
-std::string windowName = "t5 LBP";
-// Theta
-int thetaInt = 50;
-std::string thetaTrackbar = "Theta";
-int const thetaMax = 100;
-
-cv::Mat input, ground_truth, gt_b, gt_gray, output, output_b; // Crear matriz de OpenCV
-
-
 
 int main(int argc, char** argv)
 {
@@ -245,46 +232,57 @@ int main(int argc, char** argv)
       printHelp(argv[0]);
       return 1;
   }
-  std::vector<cv::Mat> male_hist, female_hist;
   std::cout << "Female DB: " << argv[1] << std::endl;
   std::cout << "Male DB: " << argv[2] << std::endl;
-  std::cout.flush();
-  getHist(fs::path(argv[1]), female_hist);
-  getHist(fs::path(argv[2]), male_hist);
-
-/*
-  std::string image_name(argv[1]);
-  std::string gt_name(argv[2]);
   
-  input = cv::imread(image_name); //Leer imagen
-  ground_truth = cv::imread(gt_name); //Leer imagen
+  // Get features
+  cv::Mat male_feat, female_feat;
+  getHist(fs::path(argv[1]), female_feat);
+  getHist(fs::path(argv[2]), male_feat);
 
-  if(input.empty()) // No encontro la imagen
-  {
-    std::cout << "Imagen '" << image_name << "' no encontrada" << std::endl;
-    return 1; // Sale del programa anormalmente
-  }
-  if(ground_truth.empty()) // No encontro ground truth
-  {
-    std::cout << "Imagen Ground Truth'" << gt_name << "' no encontrada" << std::endl;
-    return 1; // Sale del programa anormalmente
-  }
+  // Label
+  cv::Mat female_labels   = cv::Mat(female_feat.rows, 1, CV_32FC1, cv::Scalar(1.0));
+  cv::Mat male_labels = cv::Mat(male_feat.rows, 1, CV_32FC1, cv::Scalar(0.0));
+  std::cout << "Female label: 1" << std::endl;
+  std::cout << "Male label: 0" << std::endl;
 
-  t5(0,0);
-  std::cout << "Presiona ESC (GUI) o Ctrl+C para salir" << std::endl;
+  // Train data
+  cv::Mat train_labels, train_feat;
+  cv::vconcat(female_feat, male_feat, train_feat);
+  cv::vconcat(male_labels, female_labels, train_labels);
+  std::cout << "Train data: (" << train_feat.rows << "," << train_feat.cols << ")" << std::endl;
 
-  while(true)
-  {
-    int c;
-    c = cv::waitKey( 20 );
-    if( (char)c == 27)
-      { break; }
-  }*/
+  // SVM parameters
+  cv::SVMParams params;
+  params.svm_type = cv::SVM::C_SVC;
+  params.kernel_type = cv::SVM::RBF;
+  params.gamma = 3.5;
+  params.C =  15;
+  params.term_crit = cv::TermCriteria(CV_TERMCRIT_ITER, 10000, 1e-5);
+
+  // Train SVM
+  std::cout << "Training SVM..." << std::endl;
+  cv::SVM SVM;
+  SVM.train(train_feat, train_labels, cv::Mat(), cv::Mat(), params);
+
+  // Test
+  cv::Mat test_male_results, test_female_results;
+  SVM.predict(male_feat, test_male_results);
+  SVM.predict(female_feat, test_female_results);
+
+  // display results
+  int s_male   = cv::sum(test_male_results  )[0];
+  int s_female = cv::sum(test_female_results)[0];
+  int len_male   = test_male_results.rows;
+  int len_female = test_female_results.rows;
+  int n_correct_classifications = s_male + (len_female-s_female);
+  float rec_rate = n_correct_classifications/(len_male + len_female + 0.0);
+  printf("\nBy genre:\n");
+  printf(" - Male   (%f) - (%d/%d)\n",(0.0+s_male)/len_male,s_male,len_male);
+  printf(" - Female (%f) - (%d/%d)\n",(0.0 + len_female-s_female)/len_female,(len_female-s_female),len_female);
+  printf("Summary:\n");
+  printf(" - class. rate (%f) - (%d/%d)\n",rec_rate,n_correct_classifications,len_male + len_female);
+  printf(" - error. rate (%f) - (%d/%d)\n",1.0-rec_rate,len_male+len_female - n_correct_classifications,len_male + len_female);
 
   return 0;
-}
-
-void t5( int, void* )
-{
-  ;
 }
