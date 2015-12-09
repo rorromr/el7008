@@ -230,13 +230,13 @@ void printHelp(const char* name)
   std::cout << "Uso: " << std::endl;
   std::cout << "\tPara entrenar: " << name << " train ./db/female ./db/male" << std::endl;
   std::cout << "\tPara LBP: " << name << " lbp ./db/female/cache2335952.jpg" << std::endl;
-  std::cout << "\tPara Clasificar: " << name << " test ./db/female ./db/male ./db/female/cache2335952.jpg" << std::endl;
+  std::cout << "\tPara Clasificar: " << name << " test ./db/female/cache2335952.jpg" << std::endl;
 }
 
 
 int main(int argc, char** argv)
 {
-  if( argc > 5)
+  if( argc > 3)
   {
       printHelp(argv[0]);
       return 1;

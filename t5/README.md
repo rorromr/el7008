@@ -12,8 +12,7 @@
 * make 3.81
 * cmake 2.8
 * opencv 2.4.8
-* Eigen 3
-* Python (numpy, matplotlib)
+* Boost Filesystem y System
 
 
 ## Compilación
@@ -43,38 +42,50 @@ $ cd /t5
 $ ./t5 clean
 ```
 
-**Test**
+**Entrenamiento**
 
-Test con imágen de prueba.
-
-```
-$ cd /t5
-$ ./t5 test
-```
-
-**Gráfico curva ROC**
-
-Realiza un gráfico de la curva ROC usando `roc.csv` (requiere Python, numpy y matplotlib).
+Para realizar preprocesamiento, extracción de características y entrenamiento del clasificador.
 
 ```
 $ cd /t5
-$ ./t5 plot
+$ ./t5 train
+```
+**Test con la base de datos**
+
+Para obtener la respuesta del clasificador ante elementos de la base de datos.
+
+```
+$ cd /t5
+$ ./t5 complete-test
 ```
 
-## Ejecución de ejemplos
+## Calculo de transformada LBP
 
-Uso: `$ ./bin/t5 imagen imagen_ground_truth`
+Uso: `$ ./t5 lbp imagen.jpg`
 
 
 Ejemplo: 
 ```
 $ cd t5
 $ ./t5 make
-$ ./bin/t5 ./db/0024.jpg ./db/0024.bmp
+$ ./t5 lbp db/male/cache2335957.jpg
 
 ```
 
-## Base de datos
+## Test con imágenes
 
-La base de datos con imágenes de prueba se guarda en el directorio `./db`.
+Uso: `$ ./t5 test imagen.jpg`. El archivo 'imagen.txt' con la posición de los ojos debe encontrarse en el mismo directorio.
+
+
+Ejemplo: 
+```
+$ cd t5
+$ ./t5 make
+$ ./t5 test db/male/cache2335957.jpg
+
+```
+
+## Bases de datos
+
+La bases de datos con imágenes de hombres y mujeres se guarda `./db/male` y `./db/female` respectivamente.
 
