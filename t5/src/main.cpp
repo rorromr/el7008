@@ -26,40 +26,27 @@
 namespace fs = ::boost::filesystem;
 
 // LBP code from https://github.com/Itseez/opencv/blob/2.4/modules/contrib/src/facerec.cpp
-template <typename _Tp>
-inline cv::Mat lbp(const cv::Mat& src, int radius, int neighbors) {
-    // Result
-    cv::Mat dst(src.rows-2*radius, src.cols-2*radius, CV_32SC1);
-    // zero
-    dst.setTo(0);
-    for(int n=0; n<neighbors; n++) {
-        // sample points
-        float x = static_cast<float>(radius * cos(2.0*CV_PI*n/static_cast<float>(neighbors)));
-        float y = static_cast<float>(-radius * sin(2.0*CV_PI*n/static_cast<float>(neighbors)));
-        // relative indices
-        int fx = static_cast<int>(floor(x));
-        int fy = static_cast<int>(floor(y));
-        int cx = static_cast<int>(ceil(x));
-        int cy = static_cast<int>(ceil(y));
-        // fractional part
-        float ty = y - fy;
-        float tx = x - fx;
-        // set interpolation weights
-        float w1 = (1 - tx) * (1 - ty);
-        float w2 =      tx  * (1 - ty);
-        float w3 = (1 - tx) *      ty;
-        float w4 =      tx  *      ty;
-        // iterate through your data
-        for(int i=radius; i < src.rows-radius;i++) {
-            for(int j=radius;j < src.cols-radius;j++) {
-                // calculate interpolated value
-                float t = static_cast<float>(w1*src.at<_Tp>(i+fy,j+fx) + w2*src.at<_Tp>(i+fy,j+cx) + w3*src.at<_Tp>(i+cy,j+fx) + w4*src.at<_Tp>(i+cy,j+cx));
-                // floating point precision, so check some machine-dependent epsilon
-                dst.at<int>(i-radius,j-radius) += ((t > src.at<_Tp>(i,j)) || (std::abs(t-src.at<_Tp>(i,j)) < std::numeric_limits<float>::epsilon())) << n;
-            }
-        }
-    }
-    return dst;
+inline cv::Mat lbp(const cv::Mat& src)
+{
+  cv::Mat dst = cv::Mat::zeros(src.rows-2, src.cols-2, CV_8UC1);
+  for(int i=1;i<src.rows-1;++i)
+  {
+      for(int j=1;j<src.cols-1;++j)
+      {
+          unsigned char center = src.at<unsigned char>(i,j);
+          unsigned char code = 0;
+          code |= (src.at<unsigned char>(i-1,j-1) >= center) << 7;
+          code |= (src.at<unsigned char>(i-1,j) >= center) << 6;
+          code |= (src.at<unsigned char>(i-1,j+1) >= center) << 5;
+          code |= (src.at<unsigned char>(i,j+1) >= center) << 4;
+          code |= (src.at<unsigned char>(i+1,j+1) >= center) << 3;
+          code |= (src.at<unsigned char>(i+1,j) >= center) << 2;
+          code |= (src.at<unsigned char>(i+1,j-1) >= center) << 1;
+          code |= (src.at<unsigned char>(i,j-1) >= center) << 0;
+          dst.at<unsigned char>(i-1,j-1) = code;
+      }
+  }
+  return dst;
 }
 
 cv::Mat calcHist(const cv::Mat& src, int minVal=0, int maxVal=255, bool normed=false)
@@ -93,8 +80,11 @@ cv::Mat spatialHistogram(const cv::Mat& src, int numPatterns, int grid_x, int gr
     // initial result_row
     int resultRowIdx = 0;
     // iterate through grid
-    for(int i = 0; i < grid_y; i++) {
-        for(int j = 0; j < grid_x; j++) {
+    for(int i = 0; i < grid_y; i++)
+    {
+        for(int j = 0; j < grid_x; j++)
+        {
+            // window
             cv::Mat src_cell = cv::Mat(src, cv::Range(i*height,(i+1)*height), cv::Range(j*width,(j+1)*width));
             cv::Mat cell_hist = calcHist(cv::Mat_<float>(src_cell), 0, (numPatterns-1), true);
             // copy to the result matrix
@@ -158,20 +148,19 @@ class Face
       cropped.copyTo(face);
     }
 
-    void getLBPHist(cv::Mat& histograms)
+    cv::Mat getLBPHist()
     {
       // Calc LBP
-       cv::Mat lbp_image = lbp<unsigned char>(face, LBP_RADIUS, LBP_NEIGHBORS);
+      cv::Mat lbp_image = lbp(face);
       // Spatial histogram
-      cv::Mat p = spatialHistogram(lbp_image, 
+      return spatialHistogram(lbp_image, 
         static_cast<int>(std::pow(2.0, static_cast<double>(LBP_NEIGHBORS))),
         LBP_GRID_X, LBP_GRID_Y);
-      histograms.push_back(p);
     }
 
     cv::Mat getLBP()
     {
-      return lbp<unsigned char>(face, LBP_RADIUS, LBP_NEIGHBORS);
+      return lbp(face);
     }
 
     void show(int delay = 20)
@@ -208,7 +197,7 @@ void getHist(const fs::path& root, cv::Mat& hist)
       std::string file_name = full_path.substr(0,full_path.find_last_of("."));
       Face face(file_name);
       face.crop();
-      face.getLBPHist(hist);
+      hist.push_back(face.getLBPHist());
     }
     ++it;
   }
@@ -238,24 +227,59 @@ void printMat(const cv::Mat &mat, const std::string &name = "M")
 
 void printHelp(const char* name)
 {
-  std::cout << "Uso: " << name << " ./db/female ./db/male" << std::endl;
+  std::cout << "Uso: " << std::endl;
+  std::cout << "\tPara entrenar: " << name << " train ./db/female ./db/male" << std::endl;
+  std::cout << "\tPara LBP: " << name << " lbp ./db/female/cache2335952.jpg" << std::endl;
+  std::cout << "\tPara Clasificar: " << name << " test ./db/female ./db/male ./db/female/cache2335952.jpg" << std::endl;
 }
 
 
 int main(int argc, char** argv)
 {
-  if( argc != 3)
+  if( argc > 5)
   {
       printHelp(argv[0]);
       return 1;
   }
-  std::cout << "Female DB: " << argv[1] << std::endl;
-  std::cout << "Male DB: " << argv[2] << std::endl;
+  // LBP Option
+  std::string option(argv[1]);
+  if (option == "lbp")
+  {
+    std::string full_path(argv[2]);
+    std::string file_name = full_path.substr(0,full_path.find_last_of("."));
+    Face face(file_name);
+    face.crop();
+    std::cout << "Presione ESC para salir" << std::endl;
+    cv::imshow("LBP",face.getLBP());
+    face.show(0);
+    return 0;
+  }
+
+  cv::SVM SVM;
+  if (option == "test")
+  {
+    if (!fs::exists("svm.xml")){
+      std::cout << "Archivo de entrenamiento 'svm.xml' no encontrado. Debe entrenar el clasificador." << std::endl;
+      return 0;
+    }
+    std::string full_path(argv[2]);
+    std::string file_name = full_path.substr(0,full_path.find_last_of("."));
+    Face face(file_name);
+    face.crop();
+    cv::Mat result;
+    SVM.load("svm.xml");
+    SVM.predict(face.getLBPHist(), result);
+    std::cout << (result.at<float>(0,0) > 0.9 ? "Mujer" : "Hombre") << std::endl;
+    return 0;
+  }
+
+  std::cout << "Female DB: " << argv[2] << std::endl;
+  std::cout << "Male DB: " << argv[3] << std::endl;
   
   // Get features
   cv::Mat female_feat, male_feat;
-  getHist(fs::path(argv[1]), female_feat);
-  getHist(fs::path(argv[2]), male_feat);
+  getHist(fs::path(argv[2]), female_feat);
+  getHist(fs::path(argv[3]), male_feat);
 
   // Size of train set
   int n_train_female = static_cast<int>(floor(0.7*female_feat.rows));
@@ -288,13 +312,13 @@ int main(int argc, char** argv)
 
   // Train SVM
   std::cout << "Training SVM..." << std::endl;
-  cv::SVM SVM;
   SVM.train(train_feat, train_labels, cv::Mat(), cv::Mat(), params);
 
   // Test data
   cv::Mat female_results, male_results;
   SVM.predict(female_test_feat, female_results);
   SVM.predict(male_test_feat, male_results);
+  SVM.save("svm.xml");
   
   // Results
   int tp = cv::sum(female_results)[0]; // True positives female

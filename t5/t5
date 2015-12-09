@@ -13,18 +13,30 @@ elif [ "$1" = "make" ]; then
   cmake ..
   make
 
-elif [ "$1" = "test" ]; then
-  ./bin/t5 ./db/0024.jpg ./db/0024.bmp 
+elif [ "$1" = "train" ]; then
+  ./bin/t5 train ./db/female/ ./db/male/
   
-elif [ "$1" = "plot" ]; then
-  python src/plot_complete.py ./db
+elif [ "$1" = "lbp" ]; then
+  ./bin/t5 lbp "$2" 
 
-elif [ "$1" = "roc" ]; then
-  for i in ./db/*.jpg; do
-    ./bin/t5 $i ${i%.*}.bmp
+elif [ "$1" = "test" ]; then
+  ./bin/t5 test "$2" 
+
+elif [ "$1" = "complete-test" ]; then
+  echo "${bold}Male Test${reset}"
+  for i in ./db/male/*.jpg; do
+    result="$(./bin/t5 test ${i})"
+    printf "Imagen %s: %s\n" "${i}" "${result}"
+  done
+  
+  echo "${bold}Female Test${reset}"
+  for i in ./db/female/*.jpg; do
+    result="$(./bin/t5 test ${i})"
+    printf "Imagen %s: %s\n" "${i}" "${result}"
   done
 
+
 else
-  echo "Uso: $./t5 make|clean|test|plot|roc"
+  echo "Uso: $./t5 make|clean|train|test|lbp|complete-test"
 fi
 
