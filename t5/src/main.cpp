@@ -236,7 +236,7 @@ void printHelp(const char* name)
 
 int main(int argc, char** argv)
 {
-  if( argc > 3)
+  if( argc > 4)
   {
       printHelp(argv[0]);
       return 1;
@@ -305,9 +305,8 @@ int main(int argc, char** argv)
   // SVM parameters
   cv::SVMParams params;
   params.svm_type = cv::SVM::C_SVC;
-  params.kernel_type = cv::SVM::RBF;
-  params.gamma = 3.5;
-  params.C =  15;
+  params.kernel_type = cv::SVM::LINEAR;
+  params.C = 25;
   params.term_crit = cv::TermCriteria(CV_TERMCRIT_ITER, 10000, 1e-5);
 
   // Train SVM
