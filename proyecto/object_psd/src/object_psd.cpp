@@ -1,10 +1,19 @@
 #include <ros/ros.h>
-// PCL specific includes
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
+// PCL specific includes
+#include <pcl/features/normal_3d.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/voxel_grid.h>
+#include <pcl/kdtree/kdtree.h>
+#include <pcl/ModelCoefficients.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl/filters/voxel_grid.h>
+#include <pcl/point_types.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/segmentation/sac_segmentation.h>
 // VoxelGrid Config
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/VoxelGridConfig.h>
@@ -20,21 +29,32 @@ void config_cb (object_psd::VoxelGridConfig &config, uint32_t level) {
 void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 {
   // Container for original & filtered data
-  pcl::PCLPointCloud2::Ptr cloudPtr (new pcl::PCLPointCloud2);
-  pcl::PCLPointCloud2::Ptr cloudFilteredPtr (new pcl::PCLPointCloud2);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloudFilteredPtr (new pcl::PointCloud<pcl::PointXYZ>);
 
   // Convert to PCL data type
-  pcl_conversions::toPCL(*cloud_msg, *cloudPtr);
+  pcl::fromROSMsg(*cloud_msg, *cloudPtr);
 
-  // Perform the actual filtering
-  pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
+  // Perform voxel grid filtering
+  pcl::VoxelGrid<pcl::PointXYZ> sor;
   sor.setInputCloud (cloudPtr);
   sor.setLeafSize (leaf_size, leaf_size, leaf_size);
   sor.filter (*cloudFilteredPtr);
 
+  // Create the segmentation object for the planar model and set all the parameters
+  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+  pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
+  seg.setOptimizeCoefficients (true);
+  seg.setModelType (pcl::SACMODEL_PLANE);
+  seg.setMethodType (pcl::SAC_RANSAC);
+  seg.setMaxIterations (100);
+  seg.setDistanceThreshold (0.02);
+
   // Convert to ROS data type
   sensor_msgs::PointCloud2 output;
-  pcl_conversions::moveFromPCL(*cloudFilteredPtr, output);
+  pcl::toROSMsg(*cloudFilteredPtr, output);
 
   // Publish the data
   pub.publish (output);
