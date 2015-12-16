@@ -1,4 +1,7 @@
 <launch>
+  <!-- Use simulation time -->
+  <arg name="use_sim_time" value="true"/>
+  <param name="use_sim_time" value="$(arg use_sim_time)" />
   <!-- Play bag file -->
   <node pkg="rosbag" type="play" name="bag_player" output="screen" args="-l --clock $(find object_psd)/bags/test1.bag"/>
   <!-- Object PSD -->

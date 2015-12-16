@@ -45,18 +45,48 @@ void cloud_cb (const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   pcl::SACSegmentation<pcl::PointXYZ> seg;
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
   pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_plane (new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPlane (new pcl::PointCloud<pcl::PointXYZ> ());
   seg.setOptimizeCoefficients (true);
   seg.setModelType (pcl::SACMODEL_PLANE);
   seg.setMethodType (pcl::SAC_RANSAC);
   seg.setMaxIterations (100);
   seg.setDistanceThreshold (0.02);
 
+  int i=0, nr_points = static_cast<int>(cloudFilteredPtr->points.size());
+  while (cloudPlane->points.size () > 0.3 * nr_points)
+  {
+    // Segment the largest planar component from the remaining cloud
+    seg.setInputCloud (cloudFilteredPtr);
+    seg.segment (*inliers, *coefficients);
+    if (inliers->indices.size () == 0)
+    {
+      ROS_WARN("Could not estimate a planar model for the given dataset.");
+      break;
+    }
+
+    // Extract the planar inliers from the input cloud
+    pcl::ExtractIndices<pcl::PointXYZ> extract;
+    extract.setInputCloud (cloudFilteredPtr);
+    extract.setIndices (inliers);
+    extract.setNegative (false);
+
+    // Get the points associated with the planar surface
+    extract.filter (*cloudPlane);
+    ROS_INFO_STREAM_THROTTLE(1, "PointCloud representing the planar component: " << cloudPlane->points.size () << " data points.");
+
+    // Remove the planar inliers, extract the rest
+/*    extract.setNegative (true);
+    extract.filter (*cloud_f);
+    *cloud_filtered = *cloud_f;*/
+  }
+  std::cout.flush();
   // Convert to ROS data type
   sensor_msgs::PointCloud2 output;
-  pcl::toROSMsg(*cloudFilteredPtr, output);
+  pcl::toROSMsg(*cloudPlane, output);
 
   // Publish the data
+  output.header.stamp = ros::Time::now();
+  output.header.frame_id = cloud_msg->header.frame_id;
   pub.publish (output);
 }
 
