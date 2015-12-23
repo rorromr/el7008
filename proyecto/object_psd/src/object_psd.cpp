@@ -12,6 +12,10 @@
 #include <pcl/point_types.h>
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/sample_consensus/sac_model_sphere.h>
+#include <pcl/sample_consensus/sac_model_cylinder.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
 // VoxelGrid configuration
@@ -66,7 +70,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     }
     else
     {
-      ROS_INFO_STREAM_THROTTLE(1, "Segmentation: " << inliers->indices.size());
+      ROS_DEBUG_STREAM_THROTTLE(1, "Segmentation: " << inliers->indices.size());
     }
 
     // Extract the planar inliers from the input cloud
@@ -77,7 +81,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 
     // Get the points associated with objects
     extract.filter(*cloudObj);
-    ROS_INFO_STREAM_THROTTLE(
+    ROS_DEBUG_STREAM_THROTTLE(
         1, "PointCloud representing the planar component: " << cloudObj->points.size () << " data points. It: " << i);
     ++i;
   }
@@ -107,8 +111,23 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     objCluster[i]->width = objCluster[i]->points.size();
     objCluster[i]->height = 1;
     objCluster[i]->is_dense = true;
-    ROS_WARN_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
+    ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
+
+  // RANSAC
+  std::vector<int> ransac_inliers;
+
+  // created RandomSampleConsensus object and compute the appropriated model
+  pcl::SampleConsensusModelSphere<pcl::PointXYZ>::Ptr model_s(
+      new pcl::SampleConsensusModelSphere<pcl::PointXYZ>(objCluster[i]));
+
+  pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>::Ptr model_c(
+      new pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>(objCluster[i]));
+
+/*  pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_s);
+  ransac.setDistanceThreshold(.01);
+  ransac.computeModel();
+  ransac.getInliers(ransac_inliers);*/
 
 
   // Colors
