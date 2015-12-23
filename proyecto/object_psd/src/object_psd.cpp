@@ -94,6 +94,23 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   ec.setInputCloud(cloudObj);
   ec.extract(cluster_indices);
 
+  // Put clusters in a pointcloud vector
+  std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr> objCluster(cluster_indices.size());
+  for (std::size_t i = 0; i < cluster_indices.size(); ++i)
+  {
+    objCluster[i].reset(new pcl::PointCloud<pcl::PointXYZ>());
+    objCluster[i]->points.reserve(cluster_indices[i].indices.size());
+    for (std::vector<int>::const_iterator pit = cluster_indices[i].indices.begin(); pit != cluster_indices[i].indices.end(); ++pit)
+    {
+      objCluster[i]->points.push_back(cloudObj->points[*pit]);
+    }
+    objCluster[i]->width = objCluster[i]->points.size();
+    objCluster[i]->height = 1;
+    objCluster[i]->is_dense = true;
+    ROS_WARN_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
+  }
+
+
   // Colors
   uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
   uint32_t green = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
