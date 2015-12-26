@@ -10,6 +10,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   sensor_msgs
   dynamic_reconfigure
+  rviz_visual_tools
 )
 
 ## System dependencies are found with CMake's conventions

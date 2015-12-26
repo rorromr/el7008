@@ -21,14 +21,68 @@
 // VoxelGrid configuration
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/VoxelGridConfig.h>
+// Rviz
+#include <rviz_visual_tools/rviz_visual_tools.h>
+
+#include <cmath>
 
 ros::Publisher pub;
 double leaf_size;
+rviz_visual_tools::RvizVisualToolsPtr visual_tools;
 
 void config_cb(object_psd::VoxelGridConfig &config, uint32_t level)
 {
   leaf_size = config.leaf_size;
   ROS_INFO("Reconfigure Leaf Size: %f", leaf_size);
+}
+
+void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
+{
+  // Create the normal estimation class
+  pcl::NormalEstimation < pcl::PointXYZ, pcl::Normal > ne;
+  // Pass object to it
+  ne.setInputCloud(object_pc);
+
+  // Create kd-tree
+  pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>());
+  // Pass kd-tree to the normal estimation object
+  ne.setSearchMethod(tree);
+
+  // Output normals
+  pcl::PointCloud<pcl::Normal>::Ptr cloud_normals(new pcl::PointCloud<pcl::Normal>);
+
+  // Use all neighbors in a sphere of radius 3cm
+  ne.setRadiusSearch(0.03);
+
+  // Compute normals
+  ne.compute(*cloud_normals);
+
+
+  Eigen::VectorXf fitCylinder(7);
+  pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>::Ptr model_p(
+      new pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>(object_pc));
+
+  model_p->setInputNormals(cloud_normals);
+  model_p->setRadiusLimits(0.030, 0.050);
+  //model_p->setAxis(Eigen::Vector3f::UnitZ());
+
+  // Fit the model
+  pcl::RandomSampleConsensus < pcl::PointXYZ > ransac(model_p);
+  ransac.setDistanceThreshold(.01);
+  ransac.computeModel();
+  ransac.getModelCoefficients(fitCylinder);
+
+  for (std::size_t i = 0; i < 7; ++i) {
+    if (!std::isfinite(static_cast<float>(fitCylinder[i]))) return;
+  }
+
+  Eigen::Affine3f pose;
+  Eigen::Quaternionf quat;
+  quat.setFromTwoVectors(Eigen::Vector3f(fitCylinder[3], fitCylinder[4], fitCylinder[5]), Eigen::Vector3f::UnitZ());
+  pose.rotate(quat);
+  pose.translation() = Eigen::Vector3f(fitCylinder[0], fitCylinder[1], fitCylinder[2]);
+
+  visual_tools->publishCylinder(pose.cast<double>(), rviz_visual_tools::GREEN, 0.2, static_cast<double>(fitCylinder[6]));
 }
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
@@ -114,21 +168,18 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
 
-  // RANSAC
-  std::vector<int> ransac_inliers;
+  // Sphere model
+/*  pcl::SampleConsensusModelSphere<pcl::PointXYZ>::Ptr model_s(
+      new pcl::SampleConsensusModelSphere<pcl::PointXYZ>(objCluster[0]));*/
 
-  // created RandomSampleConsensus object and compute the appropriated model
-  pcl::SampleConsensusModelSphere<pcl::PointXYZ>::Ptr model_s(
-      new pcl::SampleConsensusModelSphere<pcl::PointXYZ>(objCluster[i]));
-
-  pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>::Ptr model_c(
-      new pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>(objCluster[i]));
 
 /*  pcl::RandomSampleConsensus<pcl::PointXYZ> ransac(model_s);
   ransac.setDistanceThreshold(.01);
   ransac.computeModel();
   ransac.getInliers(ransac_inliers);*/
 
+  for (std::size_t i = 0; i < objCluster.size(); ++i)
+    cylinder_matcher(objCluster[i]);
 
   // Colors
   uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
@@ -176,6 +227,9 @@ int main(int argc, char** argv)
   // Initialize ROS
   ros::init(argc, argv, "object_psd");
   ros::NodeHandle nh;
+
+  // Visual tools
+  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_optical_frame","/object_marker"));
 
   // Initialize dynamic config server
   dynamic_reconfigure::Server<object_psd::VoxelGridConfig> server;
