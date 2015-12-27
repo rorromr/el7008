@@ -1,4 +1,5 @@
 #include <ros/ros.h>
+#include <math.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 // PCL specific includes
@@ -21,6 +22,9 @@
 // VoxelGrid configuration
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/VoxelGridConfig.h>
+// Conversions
+#include <tf_conversions/tf_eigen.h>
+#include <eigen_conversions/eigen_msg.h>
 // Rviz
 #include <rviz_visual_tools/rviz_visual_tools.h>
 
@@ -57,32 +61,95 @@ void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   // Compute normals
   ne.compute(*cloud_normals);
 
+  pcl::SACSegmentationFromNormals<pcl::PointXYZ, pcl::Normal> seg;
+  seg.setOptimizeCoefficients(true);
+  seg.setModelType(pcl::SACMODEL_CYLINDER);
+  seg.setMethodType(pcl::SAC_RANSAC);
+  seg.setNormalDistanceWeight(0.1);
+  seg.setMaxIterations(10000);
+  seg.setDistanceThreshold(0.05);
+  seg.setRadiusLimits(0, 0.1);
+  seg.setInputCloud(object_pc);
+  seg.setInputNormals(cloud_normals);
 
-  Eigen::VectorXf fitCylinder(7);
-  pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>::Ptr model_p(
-      new pcl::SampleConsensusModelCylinder<pcl::PointXYZ, pcl::Normal>(object_pc));
+  // Obtain the cylinder inliers and coefficients
+  pcl::PointIndices::Ptr inliers_cylinder(new pcl::PointIndices);
+  pcl::ModelCoefficients::Ptr coefficients_cylinder(new pcl::ModelCoefficients);
+  seg.segment(*inliers_cylinder, *coefficients_cylinder);
 
-  model_p->setInputNormals(cloud_normals);
-  model_p->setRadiusLimits(0.030, 0.050);
-  //model_p->setAxis(Eigen::Vector3f::UnitZ());
+  //std::cout << *coefficients_cylinder << std::endl;
+  Eigen::Quaterniond q;
 
-  // Fit the model
-  pcl::RandomSampleConsensus < pcl::PointXYZ > ransac(model_p);
-  ransac.setDistanceThreshold(.01);
-  ransac.computeModel();
-  ransac.getModelCoefficients(fitCylinder);
+  Eigen::Vector3d axis_vector(coefficients_cylinder->values[3], coefficients_cylinder->values[4], coefficients_cylinder->values[5]);
+  axis_vector.normalize();
 
-  for (std::size_t i = 0; i < 7; ++i) {
-    if (!std::isfinite(static_cast<float>(fitCylinder[i]))) return;
+  Eigen::Vector3d up_vector(0.0, 0.0, 1.0);
+  Eigen::Vector3d right_axis_vector = axis_vector.cross(up_vector);
+  right_axis_vector.normalized();
+  double theta = axis_vector.dot(up_vector);
+  double angle_rotation = -1.0 * acos(theta);
+
+  tf::Vector3 tf_right_axis_vector;
+  tf::vectorEigenToTF(right_axis_vector, tf_right_axis_vector);
+
+  // Create TF quaternion
+  tf::Quaternion tf_q(tf_right_axis_vector, angle_rotation);
+
+  // Convert back to Eigen
+  tf::quaternionTFToEigen(tf_q, q);
+
+  // Rotate so that vector points along line
+  Eigen::Affine3d pose;
+  q.normalize();
+  pose = q;
+  pose.translation() = Eigen::Vector3d(coefficients_cylinder->values[0],
+                                       coefficients_cylinder->values[1],
+                                       coefficients_cylinder->values[2]);
+
+  double radius = 2*static_cast<double>(coefficients_cylinder->values[6]);
+
+  visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, 0.2, radius);
+
+  pcl::ExtractIndices<pcl::PointXYZ> extract;
+  extract.setInputCloud(object_pc);
+  extract.setIndices(inliers_cylinder);
+  extract.setNegative(false);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cylinder(new pcl::PointCloud<pcl::PointXYZ> ());
+  extract.filter(*cloud_cylinder);
+  if (cloud_cylinder->points.empty ())
+    std::cerr << "Can't find the cylindrical component." << std::endl;
+  else
+  {
+    // Colors
+    uint32_t color = ((uint32_t)50 << 16 | (uint32_t)255 << 8 | (uint32_t)200);
+    float colorf = *reinterpret_cast<float*>(&color);
+
+    // Colored point cloud
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr objectColored(new pcl::PointCloud<pcl::PointXYZRGB>());
+
+    for (std::vector<int>::const_iterator it = inliers_cylinder->indices.begin(); it != inliers_cylinder->indices.end(); ++it)
+    {
+      pcl::PointXYZRGB p;
+      p.x = object_pc->points[*it].x;
+      p.y = object_pc->points[*it].y;
+      p.z = object_pc->points[*it].z;
+      p.rgb = colorf;
+      objectColored->points.push_back(p);
+    }
+
+    objectColored->width = objectColored->points.size();
+    objectColored->height = 1;
+    objectColored->is_dense = true;
+
+    // Convert to ROS data type
+    sensor_msgs::PointCloud2::Ptr output(new sensor_msgs::PointCloud2);
+    pcl::toROSMsg(*objectColored, *output);
+
+    // Publish the data
+    output->header.stamp = ros::Time::now();
+    output->header.frame_id = "bender/sensors/rgbd_head_depth_optical_frame";
+    pub.publish(output);
   }
-
-  Eigen::Affine3f pose;
-  Eigen::Quaternionf quat;
-  quat.setFromTwoVectors(Eigen::Vector3f(fitCylinder[3], fitCylinder[4], fitCylinder[5]), Eigen::Vector3f::UnitZ());
-  pose.rotate(quat);
-  pose.translation() = Eigen::Vector3f(fitCylinder[0], fitCylinder[1], fitCylinder[2]);
-
-  visual_tools->publishCylinder(pose.cast<double>(), rviz_visual_tools::GREEN, 0.2, static_cast<double>(fitCylinder[6]));
 }
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
@@ -178,8 +245,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   ransac.computeModel();
   ransac.getInliers(ransac_inliers);*/
 
-  for (std::size_t i = 0; i < objCluster.size(); ++i)
-    cylinder_matcher(objCluster[i]);
+  cylinder_matcher(objCluster[1]);
 
   // Colors
   uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
@@ -219,7 +285,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   // Publish the data
   output->header.stamp = ros::Time::now();
   output->header.frame_id = cloud_msg->header.frame_id;
-  pub.publish(output);
+  //pub.publish(output);
 }
 
 int main(int argc, char** argv)
@@ -230,6 +296,7 @@ int main(int argc, char** argv)
 
   // Visual tools
   visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_optical_frame","/object_marker"));
+  visual_tools->setLifetime(0.1);
 
   // Initialize dynamic config server
   dynamic_reconfigure::Server<object_psd::VoxelGridConfig> server;

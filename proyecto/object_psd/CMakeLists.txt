@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   dynamic_reconfigure
   rviz_visual_tools
+  tf_conversions
+  eigen_conversions
 )
 
 ## System dependencies are found with CMake's conventions
