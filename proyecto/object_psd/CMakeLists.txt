@@ -13,6 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   rviz_visual_tools
   tf_conversions
   eigen_conversions
+  shape_msgs
+  std_msgs
+  geometry_msgs
+  message_generation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -49,11 +53,10 @@ find_package(catkin REQUIRED COMPONENTS
 ##   * add every package in MSG_DEP_SET to generate_messages(DEPENDENCIES ...)
 
 ## Generate messages in the 'msg' folder
-# add_message_files(
-#   FILES
-#   Message1.msg
-#   Message2.msg
-# )
+add_message_files(
+  FILES
+  ObjectShape.msg
+)
 
 ## Generate services in the 'srv' folder
 # add_service_files(
@@ -70,10 +73,12 @@ find_package(catkin REQUIRED COMPONENTS
 # )
 
 ## Generate added messages and services with any dependencies listed here
-# generate_messages(
-#   DEPENDENCIES
-#   sensor_msgs
-# )
+generate_messages(
+  DEPENDENCIES
+  shape_msgs
+  std_msgs
+  geometry_msgs
+)
 
 generate_dynamic_reconfigure_options(cfg/PSD.cfg)
 
@@ -89,8 +94,8 @@ generate_dynamic_reconfigure_options(cfg/PSD.cfg)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES pcl_tutorial
-#  CATKIN_DEPENDS pcl_conversions pcl_ros roscpp sensor_msgs
-#  DEPENDS system_lib
+   CATKIN_DEPENDS roscpp shape_msgs std_msgs geometry_msgs message_runtime
+   DEPENDS system_lib
 )
 
 ###########
@@ -114,7 +119,7 @@ include_directories(
 
 add_executable(object_psd src/object_psd.cpp)
 target_link_libraries(object_psd ${catkin_LIBRARIES})
-add_dependencies(object_psd ${PROJECT_NAME}_gencfg)
+add_dependencies(object_psd ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes

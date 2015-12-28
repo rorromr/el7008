@@ -19,7 +19,7 @@
 #include <pcl/sample_consensus/sac_model_cylinder.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
-// VoxelGrid configuration
+// Configuration
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/PSDConfig.h>
 // Conversions
@@ -27,16 +27,23 @@
 #include <eigen_conversions/eigen_msg.h>
 // Rviz
 #include <rviz_visual_tools/rviz_visual_tools.h>
+// Shape messages
+#include <object_psd/ObjectShape.h>
+#include <geometry_msgs/Pose.h>
+#include <shape_msgs/SolidPrimitive.h>
 
 #include <cmath>
 
-ros::Publisher pub;
+ros::Publisher pub, shapePub;
 // Parameters
 double leaf_size; // Leaf size for voxel grid
 int ransac_it; // RANSAC Max iter
 // Threshold
 double sphere_th;
 double cylinder_th;
+double match_th;
+
+object_psd::ObjectShape::Ptr objects;
 
 rviz_visual_tools::RvizVisualToolsPtr visual_tools;
 
@@ -87,10 +94,11 @@ void config_cb(object_psd::PSDConfig &config, uint32_t level)
   ransac_it = config.ransac_it;
   sphere_th = config.sphere_th;
   cylinder_th = config.cylinder_th;
+  match_th = config.match_th;
   ROS_INFO("Reconfigure Leaf Size: %f", leaf_size);
 }
 
-void sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
+float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 {
   pcl::ModelCoefficients::Ptr sphere_coefficients (new pcl::ModelCoefficients);
   pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
@@ -105,11 +113,31 @@ void sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   seg.setInputCloud(object_pc);
   seg.segment(*inliers, *sphere_coefficients);
 
+  double match = static_cast<double>(inliers->indices.size())/object_pc->points.size();
+
+  if (match < match_th)
+  {
+    return match;
+  }
+
   Eigen::Vector3d center(sphere_coefficients->values[0],
                          sphere_coefficients->values[1],
                          sphere_coefficients->values[2]);
   double radius = 2*static_cast<double>(sphere_coefficients->values[3]);
   visual_tools->publishSphere(center, rviz_visual_tools::GREY, radius);
+
+  geometry_msgs::Pose pose_msg;
+  Eigen::Affine3d pose(Eigen::Quaterniond(1.0,0.0,0.0,0.0));
+  pose.translation() = center;
+  tf::poseEigenToMsg(pose, pose_msg);
+
+  shape_msgs::SolidPrimitive sphere_msg;
+  sphere_msg.type = shape_msgs::SolidPrimitive::SPHERE;
+  sphere_msg.dimensions.resize(1);
+  sphere_msg.dimensions[shape_msgs::SolidPrimitive::SPHERE_RADIUS] = radius;
+
+  objects->primitives.push_back(sphere_msg);
+  objects->primitive_poses.push_back(pose_msg);
 
   pcl::ExtractIndices<pcl::PointXYZ> extract;
   extract.setInputCloud(object_pc);
@@ -118,7 +146,10 @@ void sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
   extract.filter(*cloud);
   if (cloud->points.empty())
+  {
     std::cerr << "Can't find the sphere component." << std::endl;
+    return 0.0;
+  }
   else
   {
     // Colors
@@ -151,9 +182,10 @@ void sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
     output->header.frame_id = "bender/sensors/rgbd_head_depth_optical_frame";
     pub.publish(output);
   }
+  return match;
 }
 
-void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
+double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 {
   // Create the normal estimation class
   pcl::NormalEstimation < pcl::PointXYZ, pcl::Normal > ne;
@@ -190,6 +222,12 @@ void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   pcl::ModelCoefficients::Ptr coefficients_cylinder(new pcl::ModelCoefficients);
   seg.segment(*inliers_cylinder, *coefficients_cylinder);
 
+  double match = static_cast<double>(inliers_cylinder->indices.size())/object_pc->points.size();
+
+  if (match < match_th)
+  {
+    return match;
+  }
 
   Eigen::Vector3d axis_vector(coefficients_cylinder->values[3], coefficients_cylinder->values[4], coefficients_cylinder->values[5]);
   axis_vector.normalize();
@@ -215,6 +253,18 @@ void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 
   visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, 0.2, radius);
 
+  geometry_msgs::Pose pose_msg;
+  tf::poseEigenToMsg(pose, pose_msg);
+
+  shape_msgs::SolidPrimitive cylinder_msg;
+  cylinder_msg.type = shape_msgs::SolidPrimitive::CYLINDER;
+  cylinder_msg.dimensions.resize(2);
+  cylinder_msg.dimensions[shape_msgs::SolidPrimitive::CYLINDER_HEIGHT] = 0.2;
+  cylinder_msg.dimensions[shape_msgs::SolidPrimitive::CYLINDER_RADIUS] = radius;
+
+  objects->primitives.push_back(cylinder_msg);
+  objects->primitive_poses.push_back(pose_msg);
+
   pcl::ExtractIndices<pcl::PointXYZ> extract;
   extract.setInputCloud(object_pc);
   extract.setIndices(inliers_cylinder);
@@ -222,7 +272,10 @@ void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cylinder(new pcl::PointCloud<pcl::PointXYZ> ());
   extract.filter(*cloud_cylinder);
   if (cloud_cylinder->points.empty ())
+  {
     std::cerr << "Can't find the cylindrical component." << std::endl;
+    return 0.0;
+  }
   else
   {
     // Colors
@@ -255,6 +308,7 @@ void cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
     output->header.frame_id = "bender/sensors/rgbd_head_depth_optical_frame";
     pub.publish(output);
   }
+  return match;
 }
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
@@ -340,9 +394,11 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
 
-
-  cylinder_matcher(objCluster[1]);
-  sphere_matcher(objCluster[2]);
+  for (std::size_t i = 0; i < objCluster.size(); ++i)
+  {
+    cylinder_matcher(objCluster[i]);
+    sphere_matcher(objCluster[i]);
+  }
 
   // Colors
   uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
@@ -383,6 +439,18 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   output->header.stamp = ros::Time::now();
   output->header.frame_id = cloud_msg->header.frame_id;
   //pub.publish(output);
+
+}
+
+void publishShape(const ros::TimerEvent& event)
+{
+  if(objects->primitives.size())
+  {
+    shapePub.publish(objects);
+    objects->primitives.clear();
+    objects->primitive_poses.clear();
+  }
+
 }
 
 int main(int argc, char** argv)
@@ -394,6 +462,13 @@ int main(int argc, char** argv)
   // Visual tools
   visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_optical_frame","/object_marker"));
   visual_tools->setLifetime(0.2);
+
+  // Shape msg
+  objects.reset(new object_psd::ObjectShape());
+  objects->header.frame_id = "bender/sensors/rgbd_head_depth_optical_frame";
+
+  ros::Timer timer = nh.createTimer(ros::Duration(0.1), publishShape);
+  shapePub = nh.advertise<object_psd::ObjectShape>("shape", 1);
 
   // Initialize dynamic config server
   dynamic_reconfigure::Server<object_psd::PSDConfig> server;
