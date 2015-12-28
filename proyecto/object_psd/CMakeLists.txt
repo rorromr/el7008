@@ -75,7 +75,7 @@ find_package(catkin REQUIRED COMPONENTS
 #   sensor_msgs
 # )
 
-generate_dynamic_reconfigure_options(cfg/VoxelGrid.cfg)
+generate_dynamic_reconfigure_options(cfg/PSD.cfg)
 
 ###################################
 ## catkin specific configuration ##
