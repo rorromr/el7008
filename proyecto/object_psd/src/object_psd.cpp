@@ -450,7 +450,6 @@ void publishShape(const ros::TimerEvent& event)
     objects->primitives.clear();
     objects->primitive_poses.clear();
   }
-
 }
 
 int main(int argc, char** argv)
