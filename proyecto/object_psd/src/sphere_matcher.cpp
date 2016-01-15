@@ -14,11 +14,9 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/sample_consensus/ransac.h>
-#include <pcl/sample_consensus/sac_model_plane.h>
 #include <pcl/sample_consensus/sac_model_sphere.h>
 #include <pcl/sample_consensus/sac_model_cylinder.h>
 #include <pcl/segmentation/extract_clusters.h>
-#include <pcl/segmentation/sac_segmentation.h>
 // Configuration
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/PSDConfig.h>
@@ -31,8 +29,9 @@
 #include <object_psd/ObjectShape.h>
 #include <geometry_msgs/Pose.h>
 #include <shape_msgs/SolidPrimitive.h>
-#include <object_psd/pcl_util.h>
 #include <cmath>
+// PCL utils
+#include <object_psd/pcl_util.h>
 
 ros::Publisher pub, shapePub;
 // Parameters
@@ -46,6 +45,7 @@ double match_th;
 object_psd::ObjectShape::Ptr objects;
 
 rviz_visual_tools::RvizVisualToolsPtr visual_tools;
+
 
 
 void config_cb(object_psd::PSDConfig &config, uint32_t level)
