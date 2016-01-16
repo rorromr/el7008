@@ -51,11 +51,59 @@ namespace pcl_util
       case CYAN:
         base = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)255);
         break;
+      case DARK_GREY:
+        base = ((uint32_t)85 << 16 | (uint32_t)85 << 16 | (uint32_t)85);
+        break;
+      case GREEN:
+        base = ((uint32_t)0 << 16 | (uint32_t)128 << 16 | (uint32_t)0);
+        break;
+      case GREY:
+        base = ((uint32_t)128 << 16 | (uint32_t)128 << 8 | (uint32_t)128);
+        break;
+      case LIME_GREEN:
+        base = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
+        break;
+      case MAGENTA:
+        base = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)255);
+        break;
+      case ORANGE:
+        base = ((uint32_t)255 << 16 | (uint32_t)165 << 8 | (uint32_t)0);
+        break;
+      case PINK:
+        base = ((uint32_t)255 << 16 | (uint32_t)192 << 8 | (uint32_t)203);
+        break;
+      case PURPLE:
+        base = ((uint32_t)128 << 16 | (uint32_t)0 << 8 | (uint32_t)128);
+        break;
+      case RED:
+        base = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
+        break;
+      case WHITE:
+        base = ((uint32_t)255 << 16 | (uint32_t)255 << 8 | (uint32_t)255);
+        break;
+      case YELLOW:
+        base = ((uint32_t)255 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
+        break;
+      default:
+        base = ((uint32_t)0 << 16 | (uint32_t)0 << 8 | (uint32_t)255);
+        break;
     }
     return *reinterpret_cast<float*>(&base);
   }
 
-}
+  /**
+   * @brief Get float color representation
+   * @param r Red component
+   * @param g Green component
+   * @param b Blue component
+   * @return Color in float format
+   */
+  float getColor(uint8_t r, uint8_t g, uint8_t b)
+  {
+    uint32_t base = ((uint32_t)r << 16 | (uint32_t)b << 8 | (uint32_t)b);
+    return *reinterpret_cast<float*>(&base);
+  }
 
+}
 
 #endif /* OBJECT_PSD_PCL_UTIL_H_ */
