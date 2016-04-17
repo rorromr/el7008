@@ -278,7 +278,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloudFilteredPtr(new pcl::PointCloud<pcl::PointXYZ>);
 
   // Convert to PCL data type
-  pcl::fromROSMsg(*cloud_msg, *cloudPtr);
+  pcl::fromROSMsg<pcl::PointXYZ>(*cloud_msg, *cloudPtr);
 
   // Perform voxel grid filtering
   pcl::VoxelGrid<pcl::PointXYZ> sor;
@@ -393,7 +393,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 
   // Convert to ROS data type
   sensor_msgs::PointCloud2::Ptr output(new sensor_msgs::PointCloud2);
-  pcl::toROSMsg(*objectColored, *output);
+  pcl::toROSMsg<pcl::PointXYZRGB>(*objectColored, *output);
 
   // Publish the data
   output->header.stamp = ros::Time::now();
