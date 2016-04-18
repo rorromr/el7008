@@ -29,39 +29,10 @@ ObjectPoseEstimator::ObjectPoseEstimator(const OPESettings& settings) {
 
 }
 
-
 SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::PointXYZRGB>& selectedObjectPtCloud) {
-	// Main object instance for superquadric fitting
-	SQFitting fittingProcess;
-
-	// The initial XYZ point cloud that is processes for pose estimation
 	pcl::PointCloud<pcl::PointXYZ> cloud;
-
-	// The downsampled XYZ point cloud that is used in the multiscale voxelization scheme
-	pcl::PointCloud<pcl::PointXYZ> downsampledCloud;
-
-	// A pointer to the initial XYZ point cloud used during voxelization
-	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr (new pcl::PointCloud<pcl::PointXYZ>());
-
-	// Initial superquadric parameters based on the cloud properties
-	SQParameters initParams;	
-
-	// The final (best) superquadric parameters that are found
-	SQParameters bestParams;
-
-	// Estimate of the superquadric parameters used for bootstrapping the multiscale voxelization scheme
-	SQParameters sqEstimate;
-
 	// A record of the initial number of points before repeated downsampling
 	int numberOfPoints = 0;
-
-	/*
-	 * The point cloud must be transformed from the Kinect optical frame to the
-	 * world coordinate frame. Additional transformations may have to be done depending
-	 * on the application, but this is left up to the user.
-	 */
-	Utils::transformPointCloud(selectedObjectPtCloud);
-
 	/*
 	 * The captured XYZRGB point cloud must be converted to an XYZ cloud
 	 * in order to perform pose estimation
@@ -77,7 +48,37 @@ SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::Point
 	}	
 	cloud.width = numberOfPoints;
 	cloud.height = 1;
-	*cloudPtr = cloud;
+	return ObjectPoseEstimator::calculateObjectPose(cloud);
+}
+
+SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::PointXYZ>& selectedObjectPtCloud) {
+	// Main object instance for superquadric fitting
+	SQFitting fittingProcess;
+	// Initial superquadric parameters based on the cloud properties
+	SQParameters initParams;	
+
+	// The final (best) superquadric parameters that are found
+	SQParameters bestParams;
+
+	// Estimate of the superquadric parameters used for bootstrapping the multiscale voxelization scheme
+	SQParameters sqEstimate;
+
+
+	// A pointer to the initial XYZ point cloud used during voxelization (Copy)
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloudPtr = selectedObjectPtCloud.makeShared();
+
+	// The downsampled XYZ point cloud that is used in the multiscale voxelization scheme
+	pcl::PointCloud<pcl::PointXYZ> downsampledCloud;
+	
+
+	/*
+	 * The point cloud must be transformed from the Kinect optical frame to the
+	 * world coordinate frame. Additional transformations may have to be done depending
+	 * on the application, but this is left up to the user.
+	 */
+	
+	Utils::transformPointCloud(*cloudPtr);
+
 
 	/*
 	 * The voxel downsampling parameters must be initialized
@@ -124,6 +125,7 @@ SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::Point
 	if (settings.verbose == true) {
 		std::cout << ">> Performing object pose estimation using Superquadrics\n";
 	}
+
 
 	/*
 	 * Multi-scale voxelization for pose estimation
@@ -218,7 +220,7 @@ SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::Point
 
 		totalElapsedTime += elapsedTime;
 			
-		errorValue = fittingProcess.qualityOfFit(cloud, bestParams);
+		errorValue = fittingProcess.qualityOfFit(*cloudPtr, bestParams);
 		errorDiff = abs(prevErrorValue - errorValue);
 		prevErrorValue = errorValue;
 

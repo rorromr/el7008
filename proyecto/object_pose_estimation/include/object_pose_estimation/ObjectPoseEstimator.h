@@ -44,6 +44,7 @@
 namespace pcl {
 
 struct PointXYZRGB;
+struct PointXYZ;
 template <class T> class PointCloud;
 
 } // pcl
@@ -93,6 +94,7 @@ public:
 	 */
 	OPE_EXPORT SQParameters calculateObjectPose(pcl::PointCloud<pcl::PointXYZRGB>& selectedObjectPtCloud);
 
+	OPE_EXPORT SQParameters calculateObjectPose(pcl::PointCloud<pcl::PointXYZ>& selectedObjectPtCloud);
 
 	/**
 	 * \brief Run the pose estimation algorithm

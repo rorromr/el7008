@@ -44,6 +44,17 @@ void Utils::convertPointCloud(const pcl::PointCloud<pcl::PointXYZRGBA>& src, pcl
 }
 
 
+void Utils::transformPointCloud(pcl::PointCloud<pcl::PointXYZ>& cloud) {
+	for (size_t i = 0; i < cloud.size(); ++i) {
+		pcl::PointXYZ p = cloud.points[i];
+
+		cloud.points[i].x = p.z;
+		cloud.points[i].y = -p.x;
+		cloud.points[i].z = p.y;
+	}
+
+}
+
 void Utils::transformPointCloud(pcl::PointCloud<pcl::PointXYZRGB>& cloud) {
 	for (size_t i = 0; i < cloud.size(); ++i) {
 		pcl::PointXYZRGB p = cloud.points[i];

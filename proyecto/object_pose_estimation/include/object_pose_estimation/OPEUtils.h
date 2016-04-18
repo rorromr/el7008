@@ -81,6 +81,8 @@ public:
 	 */
 	static void transformPointCloud(pcl::PointCloud<pcl::PointXYZRGB>& cloud);
 
+	static void transformPointCloud(pcl::PointCloud<pcl::PointXYZ>& cloud);
+
 
 	/**
 	 * \brief Prints the current local time to the output stream

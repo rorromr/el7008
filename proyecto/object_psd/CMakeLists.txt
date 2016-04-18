@@ -20,6 +20,9 @@ find_package(catkin REQUIRED COMPONENTS
   object_pose_estimation
 )
 
+
+find_package(Boost REQUIRED)
+
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -119,7 +122,7 @@ include_directories(
 # add_executable(pcl_tutorial_node src/pcl_tutorial_node.cpp)
 
 add_executable(object_psd src/object_psd.cpp)
-target_link_libraries(object_psd ${catkin_LIBRARIES})
+target_link_libraries(object_psd ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(object_psd ${PROJECT_NAME}_gencfg ${PROJECT_NAME}_generate_messages_cpp)
 
 ## Add cmake target dependencies of the executable/library

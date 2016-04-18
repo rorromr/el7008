@@ -34,6 +34,10 @@
 #include <object_psd/pcl_util.h>
 #include <cmath>
 
+#include <object_pose_estimation/SQTypes.h>
+#include <object_pose_estimation/ObjectPoseEstimator.h>
+#include <boost/thread.hpp>
+
 ros::Publisher pub, shapePub;
 // Parameters
 double leaf_size; // Leaf size for voxel grid
@@ -271,6 +275,18 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   return match;
 }
 
+void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
+{
+  ope::OPESettings settings;
+  settings.minTgtDepth = 0.4f;
+  settings.maxObjHeight = 2.5f;
+
+  ope::ObjectPoseEstimator estimator(settings);
+  ope::SQParameters sqParams = estimator.calculateObjectPose(*obj);
+  // Print parameters
+  ROS_INFO_STREAM(sqParams);
+}
+
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 {
   // Container for original & filtered data
@@ -354,11 +370,21 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
 
+
+  boost::thread_group thread_group;
   for (std::size_t i = 0; i < objCluster.size(); ++i)
   {
-    cylinder_matcher(objCluster[i]);
-    sphere_matcher(objCluster[i]);
+    if (objCluster[i]->size() < 10)
+    {
+      ROS_WARN("Cluster with less than 10 points!");
+      continue;
+    }
+    thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
+    //quadraticMatcher();
+    //cylinder_matcher(objCluster[i]);
+    //sphere_matcher(objCluster[i]);
   }
+  thread_group.join_all();
 
   // Colors
   uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
@@ -398,7 +424,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   // Publish the data
   output->header.stamp = ros::Time::now();
   output->header.frame_id = cloud_msg->header.frame_id;
-  //pub.publish(output);
+  pub.publish(output);
 
 }
 
