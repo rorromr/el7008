@@ -275,6 +275,22 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   return match;
 }
 
+bool expectNear(double value, double expectedValue, double eps = 0.1)
+{
+	return std::abs(value-expectedValue) < eps;
+}
+
+void quadraticSphereMatcher(const ope::SQParameters& param)
+{
+  if (expectNear(param.e1, 1.0) && expectNear(param.e2, 1.0))
+  {
+	ROS_INFO("Sphere!");
+    Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
+	double diameter = 0.66 * (param.a1+param.a3+param.a3); // Mean
+	visual_tools->publishSphere(center, rviz_visual_tools::GREY, diameter);
+  }
+}
+
 void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
 {
   ope::OPESettings settings;
@@ -283,9 +299,12 @@ void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
 
   ope::ObjectPoseEstimator estimator(settings);
   ope::SQParameters sqParams = estimator.calculateObjectPose(*obj);
+  quadraticSphereMatcher(sqParams);
   // Print parameters
   ROS_INFO_STREAM(sqParams);
 }
+
+
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 {
@@ -445,7 +464,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   // Visual tools
-  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_optical_frame","/object_marker"));
+  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_frame","/object_marker"));
   visual_tools->setLifetime(0.2);
 
   // Shape msg

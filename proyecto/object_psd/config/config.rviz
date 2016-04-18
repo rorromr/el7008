@@ -113,12 +113,12 @@ Visualization Manager:
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
-    - Class: rviz/Marker
+    - Class: rviz/MarkerArray
       Enabled: true
       Marker Topic: /object_marker
-      Name: Marker
+      Name: MarkerArray
       Namespaces:
-        Cylinder: true
+        Sphere: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -157,10 +157,10 @@ Visualization Manager:
         Z: 0.465934
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.959799
+      Pitch: 0.769799
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.84907
+      Yaw: 2.5541
     Saved: ~
 Window Geometry:
   Displays:
