@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   message_generation
+  object_pose_estimation
 )
 
 ## System dependencies are found with CMake's conventions
@@ -94,7 +95,7 @@ generate_dynamic_reconfigure_options(cfg/PSD.cfg)
 catkin_package(
   INCLUDE_DIRS include
 #  LIBRARIES pcl_tutorial
-  CATKIN_DEPENDS roscpp shape_msgs std_msgs geometry_msgs message_runtime
+  CATKIN_DEPENDS roscpp shape_msgs std_msgs geometry_msgs message_runtime object_pose_estimation
   DEPENDS system_lib
 )
 
