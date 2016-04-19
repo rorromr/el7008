@@ -19,6 +19,8 @@
 #include <pcl/sample_consensus/sac_model_cylinder.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/passthrough.h>
+
 // Configuration
 #include <dynamic_reconfigure/server.h>
 #include <object_psd/PSDConfig.h>
@@ -51,11 +53,9 @@ double phi_factor;
 double theta_factor;
 double psi_factor;
 
-
 object_psd::ObjectShape::Ptr objects;
 
 rviz_visual_tools::RvizVisualToolsPtr visual_tools;
-
 
 void config_cb(object_psd::PSDConfig &config, uint32_t level)
 {
@@ -72,8 +72,8 @@ void config_cb(object_psd::PSDConfig &config, uint32_t level)
 
 float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 {
-  pcl::ModelCoefficients::Ptr sphere_coefficients (new pcl::ModelCoefficients);
-  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+  pcl::ModelCoefficients::Ptr sphere_coefficients(new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
 
   pcl::SACSegmentation<pcl::PointXYZ> seg;
   seg.setOptimizeCoefficients(true);
@@ -85,21 +85,20 @@ float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   seg.setInputCloud(object_pc);
   seg.segment(*inliers, *sphere_coefficients);
 
-  double match = static_cast<double>(inliers->indices.size())/object_pc->points.size();
+  double match = static_cast<double>(inliers->indices.size()) / object_pc->points.size();
 
   if (match < match_th)
   {
     return match;
   }
 
-  Eigen::Vector3d center(sphere_coefficients->values[0],
-                         sphere_coefficients->values[1],
+  Eigen::Vector3d center(sphere_coefficients->values[0], sphere_coefficients->values[1],
                          sphere_coefficients->values[2]);
-  double radius = 2*static_cast<double>(sphere_coefficients->values[3]);
+  double radius = 2 * static_cast<double>(sphere_coefficients->values[3]);
   visual_tools->publishSphere(center, rviz_visual_tools::GREY, radius);
 
   geometry_msgs::Pose pose_msg;
-  Eigen::Affine3d pose(Eigen::Quaterniond(1.0,0.0,0.0,0.0));
+  Eigen::Affine3d pose(Eigen::Quaterniond(1.0, 0.0, 0.0, 0.0));
   pose.translation() = center;
   tf::poseEigenToMsg(pose, pose_msg);
 
@@ -130,8 +129,7 @@ float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
     // Colored point cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr objectColored(new pcl::PointCloud<pcl::PointXYZRGB>());
 
-    for (std::vector<int>::const_iterator it = inliers->indices.begin(); it != inliers->indices.end();
-        ++it)
+    for (std::vector<int>::const_iterator it = inliers->indices.begin(); it != inliers->indices.end(); ++it)
     {
       pcl::PointXYZRGB p;
       p.x = object_pc->points[*it].x;
@@ -160,7 +158,7 @@ float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 {
   // Create the normal estimation class
-  pcl::NormalEstimation < pcl::PointXYZ, pcl::Normal > ne;
+  pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
   // Pass object to it
   ne.setInputCloud(object_pc);
 
@@ -194,14 +192,15 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   pcl::ModelCoefficients::Ptr coefficients_cylinder(new pcl::ModelCoefficients);
   seg.segment(*inliers_cylinder, *coefficients_cylinder);
 
-  double match = static_cast<double>(inliers_cylinder->indices.size())/object_pc->points.size();
+  double match = static_cast<double>(inliers_cylinder->indices.size()) / object_pc->points.size();
 
   if (match < match_th)
   {
     return match;
   }
 
-  Eigen::Vector3d axis_vector(coefficients_cylinder->values[3], coefficients_cylinder->values[4], coefficients_cylinder->values[5]);
+  Eigen::Vector3d axis_vector(coefficients_cylinder->values[3], coefficients_cylinder->values[4],
+                              coefficients_cylinder->values[5]);
   axis_vector.normalize();
 
   Eigen::Vector3d up_vector = Eigen::Vector3d::UnitZ();
@@ -217,11 +216,10 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   // Rotate so that vector points along line
   Eigen::Affine3d pose;
   pose = q * Eigen::AngleAxisd(-0.5 * M_PI, Eigen::Vector3d::UnitX());
-  pose.translation() = Eigen::Vector3d(coefficients_cylinder->values[0],
-                                       coefficients_cylinder->values[1],
+  pose.translation() = Eigen::Vector3d(coefficients_cylinder->values[0], coefficients_cylinder->values[1],
                                        coefficients_cylinder->values[2]);
 
-  double radius = 2.0*static_cast<double>(coefficients_cylinder->values[6]);
+  double radius = 2.0 * static_cast<double>(coefficients_cylinder->values[6]);
 
   visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, 0.2, radius);
 
@@ -241,9 +239,9 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   extract.setInputCloud(object_pc);
   extract.setIndices(inliers_cylinder);
   extract.setNegative(false);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cylinder(new pcl::PointCloud<pcl::PointXYZ> ());
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cylinder(new pcl::PointCloud<pcl::PointXYZ>());
   extract.filter(*cloud_cylinder);
-  if (cloud_cylinder->points.empty ())
+  if (cloud_cylinder->points.empty())
   {
     std::cerr << "Can't find the cylindrical component." << std::endl;
     return 0.0;
@@ -257,7 +255,8 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
     // Colored point cloud
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr objectColored(new pcl::PointCloud<pcl::PointXYZRGB>());
 
-    for (std::vector<int>::const_iterator it = inliers_cylinder->indices.begin(); it != inliers_cylinder->indices.end(); ++it)
+    for (std::vector<int>::const_iterator it = inliers_cylinder->indices.begin(); it != inliers_cylinder->indices.end();
+        ++it)
     {
       pcl::PointXYZRGB p;
       p.x = object_pc->points[*it].x;
@@ -285,22 +284,21 @@ double cylinder_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
 
 bool expectNear(double value, double expectedValue, double eps = 0.1)
 {
-	return std::abs(value-expectedValue) < eps;
+  return std::abs(value - expectedValue) < eps;
 }
 
 bool quadraticSphereMatcher(const ope::SQParameters& param)
 {
   if (expectNear(param.e1, 1.0) && expectNear(param.e2, 1.0))
   {
-	// Calc diameter from parameters
-	double diameter = 0.66 * (param.a1+param.a3+param.a3);
-	ROS_INFO("Sphere detected (d = %.3f) [%.3f, %.3f, %.3f]",
-				diameter, param.px, param.py, -param.pz);
+    // Calc diameter from parameters
+    double diameter = 0.66 * (param.a1 + param.a3 + param.a3);
+    ROS_INFO("Sphere detected (d = %.3f) [%.3f, %.3f, %.3f]", diameter, param.px, param.py, -param.pz);
     // Calc pose
-	Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
+    Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
 
-	visual_tools->publishSphere(center, rviz_visual_tools::RAND, diameter);
-	return true;
+    visual_tools->publishSphere(center, rviz_visual_tools::RAND, diameter);
+    return true;
   }
   return false;
 }
@@ -309,43 +307,42 @@ bool quadraticCuboidMatcher(const ope::SQParameters& param)
 {
   if (expectNear(param.e1, 0.1) && expectNear(param.e2, 0.1))
   {
-	using namespace Eigen;
-	// Calc dimensions from parameters
-	double depth = 2*param.a1, width = 2*param.a2, height = 2*param.a3;
-	ROS_INFO("Cuboid detected (d = %.3f, w = %.3f, h = %.3f) [%.3f, %.3f, %.3f]",
-			depth, width, height, param.px, param.py, -param.pz);
+    using namespace Eigen;
+    // Calc dimensions from parameters
+    double depth = 2 * param.a1, width = 2 * param.a2, height = 2 * param.a3;
+    ROS_INFO("Cuboid detected (d = %.3f, w = %.3f, h = %.3f) [%.3f, %.3f, %.3f]", depth, width, height, param.px,
+             param.py, -param.pz);
 
-	// Calc pose from parameters
+    // Calc pose from parameters
     Affine3d pose = Translation3d(param.px, param.py, -param.pz)
-    	  * Eigen::AngleAxisd(-1.0*param.phi, Eigen::Vector3d::UnitX())
-		  * Eigen::AngleAxisd(-1.0*param.theta, Eigen::Vector3d::UnitY())
-		  * Eigen::AngleAxisd(-1.0*param.psi, Eigen::Vector3d::UnitZ());
+        * Eigen::AngleAxisd(-0.75 * param.phi, Eigen::Vector3d::UnitX())
+        * Eigen::AngleAxisd(-0.75 * param.theta, Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(-1.0 * param.psi, Eigen::Vector3d::UnitZ());
 
     // @TODO Add verbose option using dynamic reconfigure
-	visual_tools->publishCuboid(pose, depth, width, height, rviz_visual_tools::RAND);
-	return true;
+    visual_tools->publishCuboid(pose, depth, width, height, rviz_visual_tools::RAND);
+    visual_tools->triggerBatchPublish();
+    return true;
   }
   return false;
 }
 
 bool quadraticCylinderMatcher(const ope::SQParameters& param)
 {
-	using namespace Eigen;
-	// Calc height and radius from parameters
-	double height = 2 * param.a1;
-	double radius = param.a2 + param.a3;
-	ROS_INFO("Cylinder detected (r = %.3f, h = %.3f) [%.3f, %.3f, %.3f]",
-			radius, height, param.px, param.py, -param.pz);
+  using namespace Eigen;
+  // Calc height and radius from parameters
+  double height = 2 * param.a1;
+  double radius = param.a2 + param.a3;
+  ROS_INFO("Cylinder detected (r = %.3f, h = %.3f) [%.3f, %.3f, %.3f]", radius, height, param.px, param.py, -param.pz);
 
-	// Calc pose from parameters
-    Affine3d pose = Translation3d(param.px, param.py, -param.pz)
-    	  * Eigen::AngleAxisd(phi_factor*param.phi, Eigen::Vector3d::UnitX())
-		  * Eigen::AngleAxisd(theta_factor*param.theta, Eigen::Vector3d::UnitY())
-		  * Eigen::AngleAxisd(psi_factor*param.psi, Eigen::Vector3d::UnitZ());
+  // Calc pose from parameters
+  Affine3d pose = Translation3d(param.px, param.py, -param.pz)
+      * Eigen::AngleAxisd(phi_factor * param.phi, Eigen::Vector3d::UnitX())
+      * Eigen::AngleAxisd(theta_factor * param.theta, Eigen::Vector3d::UnitY())
+      * Eigen::AngleAxisd(psi_factor * param.psi, Eigen::Vector3d::UnitZ());
 
-
-    visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, height, radius);
-	return true;
+  visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, height, radius);
+  return true;
 }
 
 void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
@@ -357,14 +354,17 @@ void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
   ope::ObjectPoseEstimator estimator(settings);
   ope::SQParameters sqParams = estimator.calculateObjectPose(*obj);
 
+  if (expectNear(sqParams.px, 0.05) && expectNear(sqParams.py, 0.05) && expectNear(sqParams.pz, 0.05))
+    return;
+
   bool match = quadraticSphereMatcher(sqParams);
-  if (!match) match = quadraticCuboidMatcher(sqParams);
-  if (!match) match = quadraticCylinderMatcher(sqParams);
+  if (!match)
+    match = quadraticCuboidMatcher(sqParams);
+  if (!match)
+    match = quadraticCylinderMatcher(sqParams);
   // Print parameters
   ROS_DEBUG_STREAM(sqParams);
 }
-
-
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 {
@@ -381,6 +381,35 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   sor.setLeafSize(leaf_size, leaf_size, leaf_size);
   sor.filter(*cloudFilteredPtr);
 
+  // PassThrough filter (x axis)
+  pcl::PassThrough<pcl::PointXYZ> pass_x;
+  pass_x.setFilterFieldName("x");
+  pass_x.setFilterLimits(-0.5, 0.5);
+
+  // PassThrough filter (y axis)
+  pcl::PassThrough<pcl::PointXYZ> pass_y;
+  pass_y.setFilterFieldName("y");
+  pass_y.setFilterLimits(-0.5, 0.5);
+
+  // PassThrough filter (z axis)
+  pcl::PassThrough<pcl::PointXYZ> pass_z;
+  pass_z.setFilterFieldName("z");
+  pass_z.setFilterLimits(-1.0, 1.0);
+
+  // Filter on x axis
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_after_x (new pcl::PointCloud<pcl::PointXYZ>);
+  pass_x.setInputCloud(cloudFilteredPtr);
+  pass_x.filter(*cloud_after_x);
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_after_y (new pcl::PointCloud<pcl::PointXYZ>);
+  pass_y.setInputCloud(cloud_after_x);
+  pass_y.filter(*cloud_after_y);
+
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_after_z (new pcl::PointCloud<pcl::PointXYZ>);
+  pass_z.setInputCloud (cloud_after_y);
+  pass_z.filter(*cloud_after_z);
+
+
   // Create the segmentation object for the planar model and set all the parameters
   pcl::SACSegmentation<pcl::PointXYZ> seg;
   pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
@@ -392,11 +421,12 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   seg.setMaxIterations(100);
   seg.setDistanceThreshold(0.02);
 
-  int i = 0, nr_points = static_cast<int>(cloudFilteredPtr->points.size());
-  while (i < 5) // 0.3 * nr_points @TODO: umbral puntos minimos en el plano
+  int i = 0, nr_points = static_cast<int>(cloud_after_z->points.size());
+  // TODO: umbral puntos minimos en el plano
+  while (i < 5) // 0.3 * nr_points
   {
     // Segment the largest planar component from the remaining cloud
-    seg.setInputCloud(cloudFilteredPtr);
+    seg.setInputCloud(cloud_after_z);
     seg.segment(*inliers, *coefficients);
     if (inliers->indices.size() == 0)
     {
@@ -410,7 +440,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 
     // Extract the planar inliers from the input cloud
     pcl::ExtractIndices<pcl::PointXYZ> extract;
-    extract.setInputCloud(cloudFilteredPtr);
+    extract.setInputCloud(cloud_after_z);
     extract.setIndices(inliers);
     extract.setNegative(true);
 
@@ -439,7 +469,8 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   {
     objCluster[i].reset(new pcl::PointCloud<pcl::PointXYZ>());
     objCluster[i]->points.reserve(cluster_indices[i].indices.size());
-    for (std::vector<int>::const_iterator pit = cluster_indices[i].indices.begin(); pit != cluster_indices[i].indices.end(); ++pit)
+    for (std::vector<int>::const_iterator pit = cluster_indices[i].indices.begin();
+        pit != cluster_indices[i].indices.end(); ++pit)
     {
       objCluster[i]->points.push_back(cloudObj->points[*pit]);
     }
@@ -449,7 +480,6 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
 
-
   boost::thread_group thread_group;
   for (std::size_t i = 0; i < objCluster.size(); ++i)
   {
@@ -458,6 +488,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
       ROS_WARN("Cluster with less than 10 points!");
       continue;
     }
+    //quadraticMatcher(objCluster[i]);
     thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
   }
   thread_group.join_all();
@@ -467,7 +498,8 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   uint32_t green = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
   uint32_t blue = ((uint32_t)0 << 16 | (uint32_t)0 << 8 | (uint32_t)255);
 
-  float colors[] = { *reinterpret_cast<float*>(&red), *reinterpret_cast<float*>(&green), *reinterpret_cast<float*>(&blue)};
+  float colors[] =
+      {*reinterpret_cast<float*>(&red), *reinterpret_cast<float*>(&green), *reinterpret_cast<float*>(&blue)};
 
   // Colored point cloud
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr objectColored(new pcl::PointCloud<pcl::PointXYZRGB>());
@@ -481,7 +513,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
       p.x = cloudObj->points[*pit].x;
       p.y = cloudObj->points[*pit].y;
       p.z = cloudObj->points[*pit].z;
-      p.rgb = colors[j%3];
+      p.rgb = colors[j % 3];
       objectColored->points.push_back(p);
     }
     ++j;
@@ -506,7 +538,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
 
 void publishShape(const ros::TimerEvent& event)
 {
-  if(objects->primitives.size())
+  if (objects->primitives.size())
   {
     shapePub.publish(objects);
     objects->primitives.clear();
@@ -519,14 +551,21 @@ int main(int argc, char** argv)
   // Initialize ROS
   ros::init(argc, argv, "object_psd");
   ros::NodeHandle nh;
+  ros::NodeHandle nh_priv("~");
+
+  // TODO Get this data from pointcloud
+  // Get camera frame
+  std::string camera_frame;
+  nh_priv.param<std::string>("camera_frame", camera_frame, "camera_depth_frame");
+  ROS_INFO("Using frame '%s' as camera_frame.", camera_frame.c_str());
 
   // Visual tools
-  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("bender/sensors/rgbd_head_depth_frame","/object_marker"));
+  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("rgb_frame", "/object_marker"));
   visual_tools->setLifetime(0.2);
 
   // Shape msg
   objects.reset(new object_psd::ObjectShape());
-  objects->header.frame_id = "bender/sensors/rgbd_head_depth_optical_frame";
+  objects->header.frame_id = camera_frame;
 
   ros::Timer timer = nh.createTimer(ros::Duration(0.1), publishShape);
   shapePub = nh.advertise<object_psd::ObjectShape>("shape", 1);
@@ -542,6 +581,7 @@ int main(int argc, char** argv)
 
   // Create a ROS publisher for the output point cloud
   pub = nh.advertise<sensor_msgs::PointCloud2>("output", 1);
+
   // Spin
   ros::spin();
   return 0;
