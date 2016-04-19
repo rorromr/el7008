@@ -53,6 +53,8 @@ double phi_factor;
 double theta_factor;
 double psi_factor;
 
+double x_pt_filter, y_pt_filter, z_pt_filter;
+
 object_psd::ObjectShape::Ptr objects;
 
 rviz_visual_tools::RvizVisualToolsPtr visual_tools;
@@ -67,6 +69,9 @@ void config_cb(object_psd::PSDConfig &config, uint32_t level)
   phi_factor = config.phi_factor;
   theta_factor = config.theta_factor;
   psi_factor = config.psi_factor;
+  x_pt_filter = config.x;
+  y_pt_filter = config.y;
+  z_pt_filter = config.z;
   ROS_INFO("Reconfigure Leaf Size: %f", leaf_size);
 }
 
@@ -384,17 +389,17 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   // PassThrough filter (x axis)
   pcl::PassThrough<pcl::PointXYZ> pass_x;
   pass_x.setFilterFieldName("x");
-  pass_x.setFilterLimits(-0.5, 0.5);
+  pass_x.setFilterLimits(-x_pt_filter, x_pt_filter);
 
   // PassThrough filter (y axis)
   pcl::PassThrough<pcl::PointXYZ> pass_y;
   pass_y.setFilterFieldName("y");
-  pass_y.setFilterLimits(-0.5, 0.5);
+  pass_y.setFilterLimits(-y_pt_filter, y_pt_filter);
 
   // PassThrough filter (z axis)
   pcl::PassThrough<pcl::PointXYZ> pass_z;
   pass_z.setFilterFieldName("z");
-  pass_z.setFilterLimits(-1.0, 1.0);
+  pass_z.setFilterLimits(-z_pt_filter, z_pt_filter);
 
   // Filter on x axis
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_after_x (new pcl::PointCloud<pcl::PointXYZ>);
@@ -408,7 +413,6 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_after_z (new pcl::PointCloud<pcl::PointXYZ>);
   pass_z.setInputCloud (cloud_after_y);
   pass_z.filter(*cloud_after_z);
-
 
   // Create the segmentation object for the planar model and set all the parameters
   pcl::SACSegmentation<pcl::PointXYZ> seg;
@@ -450,6 +454,8 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
         1, "PointCloud representing the planar component: " << cloudObj->points.size () << " data points. It: " << i);
     ++i;
   }
+
+
   // Creating the KdTree object for the search method of the extraction
   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
   tree->setInputCloud(cloudObj);
@@ -488,8 +494,8 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
       ROS_WARN("Cluster with less than 10 points!");
       continue;
     }
-    //quadraticMatcher(objCluster[i]);
-    thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
+    quadraticMatcher(objCluster[i]);
+    //thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
   }
   thread_group.join_all();
 
@@ -555,12 +561,14 @@ int main(int argc, char** argv)
 
   // TODO Get this data from pointcloud
   // Get camera frame
-  std::string camera_frame;
-  nh_priv.param<std::string>("camera_frame", camera_frame, "camera_depth_frame");
+  std::string camera_frame, object_frame;
+  nh_priv.param<std::string>("camera_frame", camera_frame, "camera_depth_optical_frame");
+  nh_priv.param<std::string>("object_frame", object_frame, "camera_depth_frame");
   ROS_INFO("Using frame '%s' as camera_frame.", camera_frame.c_str());
+  ROS_INFO("Using frame '%s' as object_frame.", object_frame.c_str());
 
   // Visual tools
-  visual_tools.reset(new rviz_visual_tools::RvizVisualTools("rgb_frame", "/object_marker"));
+  visual_tools.reset(new rviz_visual_tools::RvizVisualTools(object_frame, "/object_marker"));
   visual_tools->setLifetime(0.2);
 
   // Shape msg
