@@ -6,6 +6,7 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /Camera frame1
       Splitter Ratio: 0.5
     Tree Height: 775
   - Class: rviz/Selection
@@ -53,7 +54,7 @@ Visualization Manager:
       Length: 0.15
       Name: Camera frame
       Radius: 0.01
-      Reference Frame: bender/sensors/rgbd_head_depth_optical_frame
+      Reference Frame: bender/sensors/rgbd_head_rgb_frame
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -118,6 +119,8 @@ Visualization Manager:
       Marker Topic: /object_marker
       Name: MarkerArray
       Namespaces:
+        Cuboid: true
+        Cylinder: true
         Sphere: true
       Queue Size: 100
       Value: true
@@ -157,10 +160,10 @@ Visualization Manager:
         Z: 0.465934
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.769799
+      Pitch: 0.759799
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 2.5541
+      Yaw: 2.9241
     Saved: ~
 Window Geometry:
   Displays:

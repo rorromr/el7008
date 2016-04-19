@@ -46,6 +46,11 @@ int ransac_it; // RANSAC Max iter
 double sphere_th;
 double cylinder_th;
 double match_th;
+// Pose factors
+double phi_factor;
+double theta_factor;
+double psi_factor;
+
 
 object_psd::ObjectShape::Ptr objects;
 
@@ -59,6 +64,9 @@ void config_cb(object_psd::PSDConfig &config, uint32_t level)
   sphere_th = config.sphere_th;
   cylinder_th = config.cylinder_th;
   match_th = config.match_th;
+  phi_factor = config.phi_factor;
+  theta_factor = config.theta_factor;
+  psi_factor = config.psi_factor;
   ROS_INFO("Reconfigure Leaf Size: %f", leaf_size);
 }
 
@@ -280,15 +288,64 @@ bool expectNear(double value, double expectedValue, double eps = 0.1)
 	return std::abs(value-expectedValue) < eps;
 }
 
-void quadraticSphereMatcher(const ope::SQParameters& param)
+bool quadraticSphereMatcher(const ope::SQParameters& param)
 {
   if (expectNear(param.e1, 1.0) && expectNear(param.e2, 1.0))
   {
-	ROS_INFO("Sphere!");
-    Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
-	double diameter = 0.66 * (param.a1+param.a3+param.a3); // Mean
-	visual_tools->publishSphere(center, rviz_visual_tools::GREY, diameter);
+	// Calc diameter from parameters
+	double diameter = 0.66 * (param.a1+param.a3+param.a3);
+	ROS_INFO("Sphere detected (d = %.3f) [%.3f, %.3f, %.3f]",
+				diameter, param.px, param.py, -param.pz);
+    // Calc pose
+	Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
+
+	visual_tools->publishSphere(center, rviz_visual_tools::RAND, diameter);
+	return true;
   }
+  return false;
+}
+
+bool quadraticCuboidMatcher(const ope::SQParameters& param)
+{
+  if (expectNear(param.e1, 0.1) && expectNear(param.e2, 0.1))
+  {
+	using namespace Eigen;
+	// Calc dimensions from parameters
+	double depth = 2*param.a1, width = 2*param.a2, height = 2*param.a3;
+	ROS_INFO("Cuboid detected (d = %.3f, w = %.3f, h = %.3f) [%.3f, %.3f, %.3f]",
+			depth, width, height, param.px, param.py, -param.pz);
+
+	// Calc pose from parameters
+    Affine3d pose = Translation3d(param.px, param.py, -param.pz)
+    	  * Eigen::AngleAxisd(-1.0*param.phi, Eigen::Vector3d::UnitX())
+		  * Eigen::AngleAxisd(-1.0*param.theta, Eigen::Vector3d::UnitY())
+		  * Eigen::AngleAxisd(-1.0*param.psi, Eigen::Vector3d::UnitZ());
+
+    // @TODO Add verbose option using dynamic reconfigure
+	visual_tools->publishCuboid(pose, depth, width, height, rviz_visual_tools::RAND);
+	return true;
+  }
+  return false;
+}
+
+bool quadraticCylinderMatcher(const ope::SQParameters& param)
+{
+	using namespace Eigen;
+	// Calc height and radius from parameters
+	double height = 2 * param.a1;
+	double radius = param.a2 + param.a3;
+	ROS_INFO("Cylinder detected (r = %.3f, h = %.3f) [%.3f, %.3f, %.3f]",
+			radius, height, param.px, param.py, -param.pz);
+
+	// Calc pose from parameters
+    Affine3d pose = Translation3d(param.px, param.py, -param.pz)
+    	  * Eigen::AngleAxisd(phi_factor*param.phi, Eigen::Vector3d::UnitX())
+		  * Eigen::AngleAxisd(theta_factor*param.theta, Eigen::Vector3d::UnitY())
+		  * Eigen::AngleAxisd(psi_factor*param.psi, Eigen::Vector3d::UnitZ());
+
+
+    visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, height, radius);
+	return true;
 }
 
 void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
@@ -299,9 +356,12 @@ void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
 
   ope::ObjectPoseEstimator estimator(settings);
   ope::SQParameters sqParams = estimator.calculateObjectPose(*obj);
-  quadraticSphereMatcher(sqParams);
+
+  bool match = quadraticSphereMatcher(sqParams);
+  if (!match) match = quadraticCuboidMatcher(sqParams);
+  if (!match) match = quadraticCylinderMatcher(sqParams);
   // Print parameters
-  ROS_INFO_STREAM(sqParams);
+  ROS_DEBUG_STREAM(sqParams);
 }
 
 
@@ -399,9 +459,6 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
       continue;
     }
     thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
-    //quadraticMatcher();
-    //cylinder_matcher(objCluster[i]);
-    //sphere_matcher(objCluster[i]);
   }
   thread_group.join_all();
 
@@ -434,7 +491,7 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
   objectColored->is_dense = true;
 
   ROS_INFO_STREAM_THROTTLE(
-      1, "Object clusters: " << cluster_indices.size () << " data points " << objectColored->points.size() << "\n");
+      1, "Object clusters: " << cluster_indices.size () << " data points " << objectColored->points.size());
 
   // Convert to ROS data type
   sensor_msgs::PointCloud2::Ptr output(new sensor_msgs::PointCloud2);

@@ -63,7 +63,7 @@ typedef struct ParameterLimits {
 	double value;
 	double lowerBound;
 	double upperBound;
-	ParameterLimits() : value(0.f), lowerBound(0.f), upperBound(0.f) {}
+	ParameterLimits() : value(0.0f), lowerBound(0.0f), upperBound(0.0f), type(BOUNDED) {}
 
 } ParameterLimits;
 
