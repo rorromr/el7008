@@ -55,7 +55,7 @@ Visualization Manager:
       Length: 0.15
       Name: Camera frame
       Radius: 0.01
-      Reference Frame: rgb_optical_frame
+      Reference Frame: bender/sensors/rgbd_head_depth_optical_frame
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
@@ -83,6 +83,7 @@ Visualization Manager:
       Size (m): 0.01
       Style: Points
       Topic: /rgbd_asus/depth/points
+      Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: false
@@ -112,6 +113,7 @@ Visualization Manager:
       Size (m): 0.01
       Style: Points
       Topic: /output
+      Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -126,7 +128,7 @@ Visualization Manager:
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
-    Fixed Frame: map
+    Fixed Frame: bender/base_link
     Frame Rate: 30
   Name: root
   Tools:

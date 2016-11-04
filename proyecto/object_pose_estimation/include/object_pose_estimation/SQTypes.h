@@ -301,7 +301,8 @@ public:
 		os << "\t   [dimensions]  (a1, a2, a3) --> (" << sq.a1 << ", " << sq.a2 << ", " << sq.a3 << ")\n";
 		os << "\t   [rotation]    (phi, theta, psi) --> (" << sq.phi << ", " << sq.theta << ", " << sq.psi << ")\n";
 		os << "\t   [shape]       (e1, e2) --> (" << sq.e1 << ", " << sq.e2 << ")\n";
-		os << "\t   [tapering]    (kx, ky) --> (" << sq.kx << ", " << sq.ky << ")\n";		
+		os << "\t   [tapering]    (kx, ky) --> (" << sq.kx << ", " << sq.ky << ")\n";
+		os << "\t   [axis]    (principal, major, minor) --> (" << sq.principalAxis << ", " << sq.majorAxis <<  ", " << sq.minorAxis << ")\n";
 		os << std::endl;
 
 		return os;

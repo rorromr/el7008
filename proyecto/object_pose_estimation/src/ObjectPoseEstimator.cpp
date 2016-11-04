@@ -77,7 +77,7 @@ SQParameters ObjectPoseEstimator::calculateObjectPose(pcl::PointCloud<pcl::Point
 	 * on the application, but this is left up to the user.
 	 */
 	
-	Utils::transformPointCloud(*cloudPtr);
+	//Utils::transformPointCloud(*cloudPtr);
 
 
 	/*

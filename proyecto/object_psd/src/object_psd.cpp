@@ -20,6 +20,7 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/segmentation/sac_segmentation.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/common/transforms.h>
 
 // Configuration
 #include <dynamic_reconfigure/server.h>
@@ -34,7 +35,6 @@
 #include <geometry_msgs/Pose.h>
 #include <shape_msgs/SolidPrimitive.h>
 #include <object_psd/pcl_util.h>
-#include <cmath>
 
 #include <object_pose_estimation/SQTypes.h>
 #include <object_pose_estimation/ObjectPoseEstimator.h>
@@ -96,7 +96,6 @@ float sphere_matcher(pcl::PointCloud<pcl::PointXYZ>::Ptr object_pc)
   {
     return match;
   }
-
   Eigen::Vector3d center(sphere_coefficients->values[0], sphere_coefficients->values[1],
                          sphere_coefficients->values[2]);
   double radius = 2 * static_cast<double>(sphere_coefficients->values[3]);
@@ -297,10 +296,10 @@ bool quadraticSphereMatcher(const ope::SQParameters& param)
   if (expectNear(param.e1, 1.0) && expectNear(param.e2, 1.0))
   {
     // Calc diameter from parameters
-    double diameter = 0.66 * (param.a1 + param.a3 + param.a3);
+    double diameter = 2.0/3.0 * (param.a1 + param.a3 + param.a3);
     ROS_INFO("Sphere detected (d = %.3f) [%.3f, %.3f, %.3f]", diameter, param.px, param.py, -param.pz);
     // Calc pose
-    Eigen::Vector3d center(param.px, param.py, -param.pz); // Center
+    Eigen::Vector3d center(param.px, param.py, param.pz); // Center
 
     visual_tools->publishSphere(center, rviz_visual_tools::RAND, diameter);
     return true;
@@ -315,16 +314,11 @@ bool quadraticCuboidMatcher(const ope::SQParameters& param)
     using namespace Eigen;
     // Calc dimensions from parameters
     double depth = 2 * param.a1, width = 2 * param.a2, height = 2 * param.a3;
-    ROS_INFO("Cuboid detected (d = %.3f, w = %.3f, h = %.3f) [%.3f, %.3f, %.3f]", depth, width, height, param.px,
-             param.py, -param.pz);
-
     // Calc pose from parameters
-    Affine3d pose = Translation3d(param.px, param.py, -param.pz)
-        * Eigen::AngleAxisd(-0.75 * param.phi, Eigen::Vector3d::UnitX())
-        * Eigen::AngleAxisd(-0.75 * param.theta, Eigen::Vector3d::UnitY())
-        * Eigen::AngleAxisd(-1.0 * param.psi, Eigen::Vector3d::UnitZ());
-
-    // @TODO Add verbose option using dynamic reconfigure
+    Affine3d pose = Translation3d(param.px, param.py, param.pz)
+        * Eigen::AngleAxisd(phi_factor * param.phi, Eigen::Vector3d::UnitZ())
+        * Eigen::AngleAxisd(theta_factor * param.theta, Eigen::Vector3d::UnitY())
+        * Eigen::AngleAxisd(psi_factor * param.psi, Eigen::Vector3d::UnitZ());
     visual_tools->publishCuboid(pose, depth, width, height, rviz_visual_tools::RAND);
     visual_tools->triggerBatchPublish();
     return true;
@@ -336,17 +330,17 @@ bool quadraticCylinderMatcher(const ope::SQParameters& param)
 {
   using namespace Eigen;
   // Calc height and radius from parameters
-  double height = 2 * param.a1;
-  double radius = param.a2 + param.a3;
-  ROS_INFO("Cylinder detected (r = %.3f, h = %.3f) [%.3f, %.3f, %.3f]", radius, height, param.px, param.py, -param.pz);
+  ROS_INFO_STREAM(param);
+  double height = 2 * param.a3;
+  double radius = param.a1 + param.a2;
 
   // Calc pose from parameters
-  Affine3d pose = Translation3d(param.px, param.py, -param.pz)
-      * Eigen::AngleAxisd(phi_factor * param.phi, Eigen::Vector3d::UnitX())
+  Affine3d pose = Translation3d(param.px, param.py, param.pz)
+      * Eigen::AngleAxisd(phi_factor * param.phi, Eigen::Vector3d::UnitZ())
       * Eigen::AngleAxisd(theta_factor * param.theta, Eigen::Vector3d::UnitY())
       * Eigen::AngleAxisd(psi_factor * param.psi, Eigen::Vector3d::UnitZ());
-
   visual_tools->publishCylinder(pose, rviz_visual_tools::RAND, height, radius);
+  visual_tools->triggerBatchPublish();
   return true;
 }
 
@@ -359,6 +353,7 @@ void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
   ope::ObjectPoseEstimator estimator(settings);
   ope::SQParameters sqParams = estimator.calculateObjectPose(*obj);
 
+
   if (expectNear(sqParams.px, 0.05) && expectNear(sqParams.py, 0.05) && expectNear(sqParams.pz, 0.05))
     return;
 
@@ -369,6 +364,47 @@ void quadraticMatcher(pcl::PointCloud<pcl::PointXYZ>::Ptr& obj)
     match = quadraticCylinderMatcher(sqParams);
   // Print parameters
   ROS_DEBUG_STREAM(sqParams);
+}
+
+void publishCluster(const std::vector<pcl::PointCloud<pcl::PointXYZ>::Ptr>& object_cluster,
+		const std::string& frame_id = "camera_depth_optical_frame")
+{
+	// Colors
+	uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
+	uint32_t green = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
+	uint32_t blue = ((uint32_t)0 << 16 | (uint32_t)0 << 8 | (uint32_t)255);
+
+	float colors[] =
+	  {*reinterpret_cast<float*>(&red), *reinterpret_cast<float*>(&green), *reinterpret_cast<float*>(&blue)};
+	std::size_t colorIdx = 0;
+	// Colored point cloud
+	pcl::PointCloud<pcl::PointXYZRGB>::Ptr object_colored(new pcl::PointCloud<pcl::PointXYZRGB>());
+
+	for (std::size_t i = 0; i < object_cluster.size(); ++i)
+	{
+	  pcl::PointCloud<pcl::PointXYZ>::Ptr cluster = object_cluster[i];
+	  for (std::size_t j = 0; j < cluster->points.size(); ++j)
+	  {
+		pcl::PointXYZRGB p;
+		p.x = cluster->points[j].x;
+		p.y = cluster->points[j].y;
+		p.z = cluster->points[j].z;
+		p.rgb = colors[colorIdx++ % 3];
+		object_colored->points.push_back(p);
+	  }
+	}
+	object_colored->width = object_colored->points.size();
+	object_colored->height = 1;
+	object_colored->is_dense = true;
+
+	// Convert to ROS data type
+	sensor_msgs::PointCloud2::Ptr output(new sensor_msgs::PointCloud2);
+	pcl::toROSMsg<pcl::PointXYZRGB>(*object_colored, *output);
+
+	// Publish the data
+	output->header.stamp = ros::Time::now();
+	output->header.frame_id = frame_id;
+	pub.publish(output);
 }
 
 void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
@@ -483,64 +519,28 @@ void cloud_cb(const sensor_msgs::PointCloud2::ConstPtr& cloud_msg)
     objCluster[i]->width = objCluster[i]->points.size();
     objCluster[i]->height = 1;
     objCluster[i]->is_dense = true;
-    ROS_DEBUG_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
+    objCluster[i]->header =  cloudPtr->header;
+    ROS_INFO_STREAM("Cluster " << i << " with " << objCluster[i]->points.size());
   }
 
   boost::thread_group thread_group;
   for (std::size_t i = 0; i < objCluster.size(); ++i)
   {
-    if (objCluster[i]->size() < 10)
+    if (objCluster[i]->size() < 13)
     {
-      ROS_WARN("Cluster with less than 10 points!");
+      ROS_WARN("Cluster with less than 13 points!");
       continue;
     }
-    quadraticMatcher(objCluster[i]);
-    //thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
+    //quadraticMatcher(objCluster[i]);
+    thread_group.create_thread(boost::bind(&quadraticMatcher, objCluster[i]));
   }
   thread_group.join_all();
 
-  // Colors
-  uint32_t red = ((uint32_t)255 << 16 | (uint32_t)0 << 8 | (uint32_t)0);
-  uint32_t green = ((uint32_t)0 << 16 | (uint32_t)255 << 8 | (uint32_t)0);
-  uint32_t blue = ((uint32_t)0 << 16 | (uint32_t)0 << 8 | (uint32_t)255);
-
-  float colors[] =
-      {*reinterpret_cast<float*>(&red), *reinterpret_cast<float*>(&green), *reinterpret_cast<float*>(&blue)};
-
-  // Colored point cloud
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr objectColored(new pcl::PointCloud<pcl::PointXYZRGB>());
-
-  int j = 0;
-  for (std::vector<pcl::PointIndices>::const_iterator it = cluster_indices.begin(); it != cluster_indices.end(); ++it)
-  {
-    for (std::vector<int>::const_iterator pit = it->indices.begin(); pit != it->indices.end(); ++pit)
-    {
-      pcl::PointXYZRGB p;
-      p.x = cloudObj->points[*pit].x;
-      p.y = cloudObj->points[*pit].y;
-      p.z = cloudObj->points[*pit].z;
-      p.rgb = colors[j % 3];
-      objectColored->points.push_back(p);
-    }
-    ++j;
-  }
-  objectColored->width = objectColored->points.size();
-  objectColored->height = 1;
-  objectColored->is_dense = true;
-
-  ROS_INFO_STREAM_THROTTLE(
-      1, "Object clusters: " << cluster_indices.size () << " data points " << objectColored->points.size());
-
-  // Convert to ROS data type
-  sensor_msgs::PointCloud2::Ptr output(new sensor_msgs::PointCloud2);
-  pcl::toROSMsg<pcl::PointXYZRGB>(*objectColored, *output);
-
-  // Publish the data
-  output->header.stamp = ros::Time::now();
-  output->header.frame_id = cloud_msg->header.frame_id;
-  pub.publish(output);
-
+  // Publish cluster point cloud
+  publishCluster(objCluster, cloud_msg->header.frame_id);
 }
+
+
 
 void publishShape(const ros::TimerEvent& event)
 {
@@ -563,7 +563,7 @@ int main(int argc, char** argv)
   // Get camera frame
   std::string camera_frame, object_frame;
   nh_priv.param<std::string>("camera_frame", camera_frame, "camera_depth_optical_frame");
-  nh_priv.param<std::string>("object_frame", object_frame, "camera_depth_frame");
+  nh_priv.param<std::string>("object_frame", object_frame, "camera_depth_optical_frame");
   ROS_INFO("Using frame '%s' as camera_frame.", camera_frame.c_str());
   ROS_INFO("Using frame '%s' as object_frame.", object_frame.c_str());
 
