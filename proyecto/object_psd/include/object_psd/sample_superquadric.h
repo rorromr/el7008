@@ -62,7 +62,7 @@ namespace object_psd
           p[3] = 1.;
 
           PointT point;
-          Eigen::Matrix<Scalar, 4, 1> p_tr = params_.transform.inverse () * p;
+          Eigen::Matrix<Scalar, 4, 1> p_tr = params_.transform * p;
           point.x = p_tr[0];
           point.y = p_tr[1];
           point.z = p_tr[2];

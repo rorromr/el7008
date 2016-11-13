@@ -3,6 +3,7 @@
   <!-- Play bag file -->
   <arg name="use_bag" default="True" />
   <arg name="bag" default="1" />
+  <param name="use_sim_time" value="True" />
 
   <node if="$(arg use_bag)" pkg="rosbag" type="play" name="bag_player" output="screen" args="-l --clock $(find object_psd)/bags/test$(arg bag).bag"/>
   
