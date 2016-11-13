@@ -6,7 +6,9 @@
   <node if="$(arg use_bag)" pkg="rosbag" type="play" name="bag_player" output="screen" args="-l --clock $(find object_psd)/bags/test1.bag"/>
   <!-- Object PSD -->
   <node pkg="object_psd" type="object_psd" name="object_psd" output="screen">
-  	<remap from="input" to="/bender/sensors/rgbd_head/depth/points"/>
+  	<remap from="input" to="/rgbd_asus/depth/points"/>
+    <param name="object_frame" value="depth_optical_frame"/>
+    <param name="camera_frame" value="depth_optical_frame"/>
   </node>
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find object_psd)/config/config.rviz" />

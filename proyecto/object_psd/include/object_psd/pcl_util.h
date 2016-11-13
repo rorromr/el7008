@@ -1,7 +1,8 @@
-#ifndef OBJECT_PSD_PCL_UTIL_H_
-#define OBJECT_PSD_PCL_UTIL_H_
+#ifndef OBJECT_PSD_PCL_UTIL_H
+#define OBJECT_PSD_PCL_UTIL_H
 
 #include <stdint.h>
+#include <stdlib.h>
 
 namespace pcl_util
 {
@@ -104,6 +105,14 @@ namespace pcl_util
     return *reinterpret_cast<float*>(&base);
   }
 
+  /**
+   * @brief Get random color from Color chart
+   */
+  float getRandomColor()
+  {
+	  return getColor(static_cast<Color>(std::rand() % YELLOW));
+  }
+
 }
 
-#endif /* OBJECT_PSD_PCL_UTIL_H_ */
+#endif /* OBJECT_PSD_PCL_UTIL_H header guard */

@@ -1,8 +1,6 @@
 <launch>
   
   <!-- Play bag file -->
-  <arg name="use_sim_time" value="false"/>
-  <param name="use_sim_time" value="$(arg use_sim_time)" />
   <arg name="use_bag" default="True" />
   <arg name="bag" default="1" />
 
@@ -10,11 +8,14 @@
   
   <!-- Object PSD -->
   <node pkg="object_psd" type="object_psd" name="object_psd" output="screen">
-  	<param name="camera_frame" value="bender/sensors/rgbd_head_depth_optical_frame"/>
-    <param name="object_frame" value="bender/sensors/rgbd_head_depth_optical_frame"/>
-    <remap from="input" to="/bender/sensors/rgbd_head/depth/points"/>
+  	<param name="camera_frame" value="depth_optical_frame"/>
+    <remap from="input" to="/rgbd_asus/depth/points"/>
   </node>
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find object_psd)/config/config.rviz" />
+
+  <include file="$(find rgbd_camera_util)/launch/display.launch">
+    <arg name="use_gui" value="False" />
+  </include>
 
 </launch>

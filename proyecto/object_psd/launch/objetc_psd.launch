@@ -2,7 +2,7 @@
   <!-- Object PSD -->
   <node pkg="object_psd" type="object_psd" name="object_psd" output="screen">
   	<remap from="input" to="/rgbd_asus/depth/points"/>
-    <param name="object_frame" value="/depth_optical_frame"/>
-    <param name="camera_frame" value="/depth_optical_frame"/>
+    <param name="object_frame" value="depth_optical_frame"/>
+    <param name="camera_frame" value="depth_optical_frame"/>
   </node>
 </launch>
